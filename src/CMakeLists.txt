@@ -127,6 +127,13 @@ target_sources(taiga PRIVATE
 	main.cpp
 )
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	target_sources(taiga PRIVATE
+		track/mpris.cpp
+		track/mpris.hpp
+	)
+endif()
+
 target_link_libraries(taiga PRIVATE
 	Qt6::Core
 	Qt6::Gui
@@ -138,6 +145,26 @@ target_link_libraries(taiga PRIVATE
 	taiga-gui
 	taiga-resources
 )
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	target_link_libraries(taiga PRIVATE Qt6::DBus)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TAIGA_BUILD_MPRIS_PROBE)
+	add_executable(taiga-mpris-probe
+		${CMAKE_SOURCE_DIR}/tests/mpris_probe.cpp
+		track/mpris.cpp
+		track/mpris.hpp
+	)
+	target_include_directories(taiga-mpris-probe PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}
+		${CMAKE_SOURCE_DIR}/deps/anisthesia/include
+	)
+	target_link_libraries(taiga-mpris-probe PRIVATE
+		Qt6::Core
+		Qt6::DBus
+	)
+endif()
 
 if (TAIGA_PORTABLE)
 	target_compile_definitions(taiga PRIVATE TAIGA_PORTABLE)
@@ -151,9 +178,11 @@ endif()
 add_subdirectory(gui)
 add_subdirectory(resources)
 
-qt_add_translations(taiga
-	SOURCE_TARGETS taiga-gui
-	TS_FILE_BASE taiga
-	TS_FILE_DIR resources/translations
-	LUPDATE_OPTIONS -no-obsolete -locations none
-)
+if (TAIGA_ENABLE_TRANSLATIONS)
+	qt_add_translations(taiga
+		SOURCE_TARGETS taiga-gui
+		TS_FILE_BASE taiga
+		TS_FILE_DIR resources/translations
+		LUPDATE_OPTIONS -no-obsolete -locations none
+	)
+endif()

@@ -17,6 +17,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 option(TAIGA_PORTABLE "Portable mode" ON)
+option(TAIGA_ENABLE_TRANSLATIONS "Build Qt translation files" ON)
+option(TAIGA_BUILD_MPRIS_PROBE "Build the Linux MPRIS integration probe" OFF)
 
 include(TaigaConfig)
 

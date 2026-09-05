@@ -125,7 +125,7 @@ void Settings::setLibraryFolders(std::vector<std::string> folders) const {
 }
 
 void Settings::setMediaDetectionInterval(const std::chrono::milliseconds interval) const {
-  setValue("track.detection.interval", interval.count());
+  setValue("track.detection.interval", static_cast<qlonglong>(interval.count()));
 }
 
 void Settings::setSyncEnabled(const bool enabled) const {

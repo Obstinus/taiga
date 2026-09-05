@@ -126,6 +126,11 @@ gui::MainWindow* Application::mainWindow() const {
 }
 
 bool Application::hasPreviousInstance() {
+  // Attaching and detaching removes an abandoned Unix shared-memory segment.
+  // A live instance keeps its own attachment, so its segment remains intact.
+  if (shared_memory_.attach()) {
+    shared_memory_.detach();
+  }
   return !shared_memory_.create(1);
 }
 

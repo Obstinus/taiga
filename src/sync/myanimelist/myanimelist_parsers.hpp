@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <ctime>
+
 #include <QString>
 #include <optional>
 

@@ -18,6 +18,7 @@
 
 #include "media.hpp"
 
+#include <QDebug>
 #include <algorithm>
 
 #include "media/anime.hpp"
@@ -26,6 +27,9 @@
 #include "track/episode.hpp"
 #include "track/media_player.hpp"
 #include "track/recognition.hpp"
+#ifdef Q_OS_LINUX
+#include "track/mpris.hpp"
+#endif
 
 namespace track::media {
 
@@ -51,7 +55,7 @@ bool Detection::init() {
     return false;
   }
 
-#ifdef Q_OS_WINDOWS
+#if defined(Q_OS_WINDOWS) || defined(Q_OS_LINUX)
   const auto interval = taiga::settings.mediaDetectionInterval();
   pollTimer_->start(interval);
 #endif
@@ -73,14 +77,47 @@ void Detection::poll() {
     return;
   }
 
+  if (results.empty()) {
+    reset();
+    return;
+  }
+
   const auto resultIt = std::ranges::find_if(results, [this](const anisthesia::win::Result& r) {
     return r.window.handle == currentWindowHandle_;
   });
   const auto& result = resultIt != results.end() ? *resultIt : results.front();
 
+  if (result.media.empty()) {
+    reset();
+    return;
+  }
+
   currentPlayer_ = result.player;
   currentMedia_ = result.media.front();
   currentWindowHandle_ = result.window.handle;
+#elif defined(Q_OS_LINUX)
+  const auto results = mpris::getResults(taiga::settings.disabledMediaPlayers());
+  if (results.empty()) {
+    reset();
+    return;
+  }
+
+  const auto resultIt = std::ranges::find_if(results, [this](const mpris::Result& result) {
+    return result.service == currentMprisService_;
+  });
+  const auto& result = resultIt != results.end() ? *resultIt : results.front();
+
+  currentPlayer_ = result.player;
+  currentMedia_ = result.media;
+  currentMprisService_ = result.service;
+#else
+  return;
+#endif
+
+  if (!currentMedia_ || currentMedia_->information.empty()) {
+    reset();
+    return;
+  }
 
   const auto mediaInfo = currentMedia_->information.front();
   auto episode = [&mediaInfo]() {
@@ -102,10 +139,13 @@ void Detection::poll() {
   episode.setAnimeId(animeId);
 
   if (hasEpisodeChanged(episode)) {
+    qDebug() << "Detected episode:"
+             << QString::fromStdString(episode.element(anitomy::ElementKind::Title))
+             << QString::fromStdString(episode.element(anitomy::ElementKind::Episode))
+             << "anime ID:" << animeId;
     currentEpisode_ = episode;
     emit currentEpisodeChanged(episode);
   }
-#endif
 }
 
 bool Detection::isMediaIdentified() const {
@@ -123,6 +163,7 @@ void Detection::reset() {
   currentPlayer_.reset();
   currentMedia_.reset();
   currentWindowHandle_ = nullptr;
+  currentMprisService_.clear();
 
   if (currentEpisode_) {
     currentEpisode_.reset();
@@ -133,6 +174,9 @@ void Detection::reset() {
 bool Detection::hasEpisodeChanged(const Episode& episode) const {
   if (!currentEpisode_) return true;
   if (currentEpisode_->animeId() != episode.animeId()) return true;
+  if (currentEpisode_->element(anitomy::ElementKind::Title) !=
+      episode.element(anitomy::ElementKind::Title))
+    return true;
 
   return currentEpisode_->elements(anitomy::ElementKind::Episode) !=
          episode.elements(anitomy::ElementKind::Episode);

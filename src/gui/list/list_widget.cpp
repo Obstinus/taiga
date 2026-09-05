@@ -211,10 +211,10 @@ void ListWidget::initMoreMenu() {
   };
 
   m_moreMenu->addAction(tr("Export as Markdown..."), this,
-                        [this]() { export_as(this, "md", &anime::list::exportAsMarkdown); });
+                        [this, export_as]() { export_as(this, "md", &anime::list::exportAsMarkdown); });
 
   m_moreMenu->addAction(tr("Export as XML..."), this,
-                        [this]() { export_as(this, "xml", &anime::list::exportAsXml); });
+                        [this, export_as]() { export_as(this, "xml", &anime::list::exportAsXml); });
 }
 
 }  // namespace gui

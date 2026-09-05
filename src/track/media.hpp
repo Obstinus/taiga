@@ -23,6 +23,7 @@
 #include <QTimer>
 #include <anisthesia.hpp>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "track/episode.hpp"
@@ -61,6 +62,7 @@ private:
   std::optional<media_t> currentMedia_;
   std::optional<player_t> currentPlayer_;
   void* currentWindowHandle_ = nullptr;
+  std::string currentMprisService_;
   std::vector<player_t> players_;
 
   QTimer* pollTimer_;
