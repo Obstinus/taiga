@@ -19,6 +19,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 option(TAIGA_PORTABLE "Portable mode" ON)
 option(TAIGA_ENABLE_TRANSLATIONS "Build Qt translation files" ON)
 option(TAIGA_BUILD_MPRIS_PROBE "Build the Linux MPRIS integration probe" OFF)
+option(TAIGA_BUILD_TORRENT_TESTS "Build isolated torrent integration tests" OFF)
+
+if (TAIGA_BUILD_TORRENT_TESTS)
+	enable_testing()
+endif()
 
 include(TaigaConfig)
 

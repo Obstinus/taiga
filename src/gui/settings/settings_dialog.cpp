@@ -18,7 +18,12 @@
 
 #include "settings_dialog.hpp"
 
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
+
 #include "base/string.hpp"
+#include "gui/main/main_window.hpp"
 #include "gui/utils/theme.hpp"
 #include "ui_settings_dialog.h"
 
@@ -75,9 +80,28 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
 
   ui_->treeWidget->expandAll();
 
+  auto torrentsPage = new QWidget(this);
+  auto torrentsLayout = new QVBoxLayout(torrentsPage);
+  auto description =
+      new QLabel(tr("Configure RSS sources, torrent file downloads, filters and refresh interval."),
+                 torrentsPage);
+  description->setWordWrap(true);
+  torrentsLayout->addWidget(description);
+  auto configure = new QPushButton(tr("Configure torrents..."), torrentsPage);
+  torrentsLayout->addWidget(configure, 0, Qt::AlignLeft);
+  torrentsLayout->addStretch();
+  ui_->stackedWidget->addWidget(torrentsPage);
+  connect(configure, &QPushButton::clicked, this, [this] {
+    accept();
+    mainWindow()->configureTorrents();
+  });
+
   connect(ui_->treeWidget, &QTreeWidget::currentItemChanged, this,
-          [this](QTreeWidgetItem* current, QTreeWidgetItem*) {
+          [this, torrentsPage](QTreeWidgetItem* current, QTreeWidgetItem*) {
             if (current) {
+              const auto section = current->parent() ? current->parent() : current;
+              ui_->stackedWidget->setCurrentWidget(
+                  section->text(0) == "Torrents" ? torrentsPage : ui_->accountsPage);
               auto text = current->text(0);
               if (current->parent()) {
                 text = u"%1 / %2"_s.arg(current->parent()->text(0), text);

@@ -123,6 +123,12 @@ target_sources(taiga PRIVATE
 	track/recognition_validate.hpp
 	track/scanner.cpp
 	track/scanner.hpp
+	track/torrent_feed.cpp
+	track/torrent_feed.hpp
+	track/torrent_download.cpp
+	track/torrent_download.hpp
+	track/torrent_settings.cpp
+	track/torrent_settings.hpp
 
 	main.cpp
 )
@@ -177,6 +183,47 @@ endif()
 
 add_subdirectory(gui)
 add_subdirectory(resources)
+
+if (TAIGA_BUILD_TORRENT_TESTS)
+	add_executable(taiga-torrent-feed-test
+		${CMAKE_SOURCE_DIR}/tests/torrent_feed_test.cpp
+		track/torrent_feed.cpp
+		track/torrent_feed.hpp
+	)
+	target_link_libraries(taiga-torrent-feed-test PRIVATE Qt6::Core Qt6::Network)
+	add_test(NAME torrent-feed COMMAND taiga-torrent-feed-test)
+
+	add_executable(taiga-torrent-download-test
+		${CMAKE_SOURCE_DIR}/tests/torrent_download_test.cpp
+		track/torrent_feed.cpp
+		track/torrent_feed.hpp
+		track/torrent_download.cpp
+		track/torrent_download.hpp
+		track/torrent_settings.cpp
+		track/torrent_settings.hpp
+	)
+	target_link_libraries(taiga-torrent-download-test PRIVATE Qt6::Core Qt6::Network)
+	add_test(NAME torrent-download COMMAND taiga-torrent-download-test)
+
+	add_executable(taiga-torrent-widget-test
+		${CMAKE_SOURCE_DIR}/tests/torrent_widget_test.cpp
+		gui/common/page_widget.cpp
+		gui/common/page_widget.hpp
+		gui/torrents/torrents_widget.cpp
+		gui/torrents/torrents_widget.hpp
+		track/torrent_feed.cpp
+		track/torrent_feed.hpp
+		track/torrent_download.cpp
+		track/torrent_download.hpp
+		track/torrent_settings.cpp
+		track/torrent_settings.hpp
+	)
+	target_link_libraries(taiga-torrent-widget-test PRIVATE Qt6::Core Qt6::Network Qt6::Widgets)
+	add_test(NAME torrent-widget COMMAND taiga-torrent-widget-test)
+	set_tests_properties(torrent-widget PROPERTIES
+		ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_PLATFORMTHEME=;QT_STYLE_OVERRIDE=Fusion"
+	)
+endif()
 
 if (TAIGA_ENABLE_TRANSLATIONS)
 	qt_add_translations(taiga

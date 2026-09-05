@@ -40,6 +40,7 @@ class NowPlayingWidget;
 class SearchWidget;
 class StatusBarController;
 class TrayIcon;
+class TorrentsWidget;
 
 enum class MainWindowPage {
   Home,
@@ -72,6 +73,8 @@ public slots:
   void displayWindow();
   void navigateTo(MainWindowPage page);
   void navigateToListStatus(anime::list::Status status);
+  void searchTorrents(const QString& title);
+  void configureTorrents();
   void updateTitle();
 
 private slots:
@@ -106,6 +109,7 @@ private:
   SearchWidget* m_searchWidget = nullptr;
   StatusBarController* m_statusBarController = nullptr;
   TrayIcon* m_trayIcon = nullptr;
+  TorrentsWidget* m_torrentsWidget = nullptr;
 };
 
 MainWindow* mainWindow();

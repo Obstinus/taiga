@@ -74,6 +74,9 @@ target_sources(taiga-gui PRIVATE
 	settings/settings_dialog.cpp
 	settings/settings_dialog.hpp
 
+	torrents/torrents_widget.cpp
+	torrents/torrents_widget.hpp
+
 	utils/format.cpp
 	utils/format.hpp
 	utils/image_provider.cpp

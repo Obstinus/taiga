@@ -27,6 +27,8 @@ the current Now Playing item.
 
 ## Remaining acceptance checks
 
+See [TORRENTS.md](TORRENTS.md) for the Qt torrent workflow and isolated tests.
+
 - Verify catalog identification and the Now Playing panel with a populated database.
 - Verify pause/resume, episode changes, player exit and multiple players.
 - Verify tray behavior and settings persistence in a graphical session.

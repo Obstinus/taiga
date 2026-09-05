@@ -35,6 +35,7 @@
 #include "gui/main/status_bar_controller.hpp"
 #include "gui/search/search_widget.hpp"
 #include "gui/settings/settings_dialog.hpp"
+#include "gui/torrents/torrents_widget.hpp"
 #include "gui/utils/format.hpp"
 #include "gui/utils/theme.hpp"
 #include "gui/utils/tray_icon.hpp"
@@ -214,6 +215,13 @@ void MainWindow::initPage(MainWindowPage page) {
       break;
 
     case MainWindowPage::Torrents:
+      m_torrentsWidget = new TorrentsWidget(ui_->torrentsPage);
+      init_page(ui_->torrentsPage, m_torrentsWidget);
+      connect(m_searchBox, &QLineEdit::returnPressed, m_torrentsWidget, [this] {
+        if (ui_->stackedWidget->currentWidget() == ui_->torrentsPage) {
+          m_torrentsWidget->search(m_searchBox->text());
+        }
+      });
       break;
 
     case MainWindowPage::Profile:
@@ -419,6 +427,17 @@ void MainWindow::navigateToListStatus(anime::list::Status status) {
   if (const auto item = m_navigationWidget->findListStatusItem(status)) {
     m_navigationWidget->setCurrentItem(item);
   }
+}
+
+void MainWindow::searchTorrents(const QString& title) {
+  navigateTo(MainWindowPage::Torrents);
+  m_searchBox->setText(title);
+  if (m_torrentsWidget) m_torrentsWidget->search(title);
+}
+
+void MainWindow::configureTorrents() {
+  navigateTo(MainWindowPage::Torrents);
+  if (m_torrentsWidget) m_torrentsWidget->showSettings();
 }
 
 void MainWindow::setPage(MainWindowPage page) {

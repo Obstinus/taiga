@@ -431,9 +431,9 @@ void MediaMenu::startNewRewatch() const {
 }
 
 void MediaMenu::torrents() const {
+  if (m_items.empty()) return;
   const auto& item = m_items.front();
-  mainWindow()->navigateTo(MainWindowPage::Torrents);
-  mainWindow()->searchBox()->setText(QString::fromStdString(anime::preferredTitle(item)));
+  mainWindow()->searchTorrents(QString::fromStdString(anime::preferredTitle(item)));
 }
 
 void MediaMenu::viewDetails() const {
