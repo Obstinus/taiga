@@ -15,7 +15,7 @@ responsible for providing Qt 6, DBus, SQLite, and the desktop Secret Service.
 ## Arch Linux
 
 The stable Arch recipe is in [`arch/PKGBUILD`](arch/PKGBUILD). It checks out the
-matching `v2.0.0` tag, initializes the project's submodules, and installs Taiga
+matching `v2.0.1` tag, initializes the project's submodules, and installs Taiga
 under `/usr` with portable mode disabled:
 
 ```sh
