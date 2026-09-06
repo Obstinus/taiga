@@ -93,6 +93,9 @@ QString getAboutDialogText(QWidget* parent) {
   };
 
   sections.append(u"<big><b>Taiga</b> %1</big>"_s.arg(version));
+  sections.append(parent->tr(
+      "An experimental Linux port of Taiga, an anime library and progress tracker originally "
+      "developed for Windows."));
   sections.append(links.join(" · "));
   addSection(parent->tr("Author"), "erengy (Eren Okka)");
   addSection(parent->tr("Contributors"), contributors.join(", "));
