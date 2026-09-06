@@ -163,7 +163,7 @@ void MainWindow::init() {
 void MainWindow::initActions() {
   ui_->actionProfile->setToolTip(tr("Profile"));
   ui_->actionSynchronize->setToolTip(
-      tr("Synchronize with %1").arg(sync::serviceName(sync::currentServiceId())));
+      tr("Synchronize with %1").arg(sync_service::serviceName(sync_service::currentServiceId())));
 
   connect(ui_->actionAddNewFolder, &QAction::triggered, this, &MainWindow::addNewFolder);
   connect(ui_->actionExit, &QAction::triggered, this, &QApplication::quit, Qt::QueuedConnection);
@@ -399,33 +399,33 @@ void MainWindow::updateHomePage() {
 void MainWindow::updateProfilePage() {
   if (!m_profileSummary) return;
 
-  const auto service = sync::currentServiceId();
-  const auto username = taiga::accounts.serviceUsername(sync::serviceSlug(service).toStdString());
+  const auto service = sync_service::currentServiceId();
+  const auto username = taiga::accounts.serviceUsername(sync_service::serviceSlug(service).toStdString());
   const auto accountName =
       username.empty() ? tr("Not configured") : QString::fromStdString(username);
 
   m_profileSummary->setText(
       tr("%1\nAccount: %2\nStatus: %3")
-          .arg(sync::serviceName(service), accountName,
-               sync::isUserAuthenticated() ? tr("Authenticated") : tr("Not authenticated")));
+          .arg(sync_service::serviceName(service), accountName,
+               sync_service::isUserAuthenticated() ? tr("Authenticated") : tr("Not authenticated")));
 }
 
 void MainWindow::authenticateFromProfile() {
-  if (sync::currentServiceId() != sync::ServiceId::AniList) {
-    sync::authenticateUser();
+  if (sync_service::currentServiceId() != sync_service::ServiceId::AniList) {
+    sync_service::authenticateUser();
     return;
   }
 
   QPointer<MainWindow> guard{this};
   taiga::accounts.loadAnilistToken([guard] {
-    if (!guard || sync::currentServiceId() != sync::ServiceId::AniList) return;
+    if (!guard || sync_service::currentServiceId() != sync_service::ServiceId::AniList) return;
 
     if (taiga::accounts.anilistToken().empty()) {
       // The token-entry flow is owned by the Accounts page. Opening it here
       // keeps the profile action usable for a first-time AniList login.
       SettingsDialog::show(guard.data());
     } else {
-      sync::authenticateUser();
+      sync_service::authenticateUser();
     }
   });
 }
@@ -455,18 +455,18 @@ void MainWindow::initStatusbar() {
   connect(&anime::db, &anime::Database::entryDeleted, this,
           [this](const int) { updateHomePage(); });
 
-  const QList<sync::Service*> services{
-      sync::anilist::Service::instance(),
-      sync::kitsu::Service::instance(),
-      sync::myanimelist::Service::instance(),
+  const QList<sync_service::Service*> services{
+      sync_service::anilist::Service::instance(),
+      sync_service::kitsu::Service::instance(),
+      sync_service::myanimelist::Service::instance(),
   };
   for (auto* service : services) {
-    connect(service, &sync::Service::authenticationCompleted, this,
+    connect(service, &sync_service::Service::authenticationCompleted, this,
             [this](const bool authenticated) {
               if (!authenticated) return;
 
-              const auto sender_service = qobject_cast<sync::Service*>(sender());
-              const auto slug = sync::serviceSlug(sender_service->id()).toStdString();
+              const auto sender_service = qobject_cast<sync_service::Service*>(sender());
+              const auto slug = sync_service::serviceSlug(sender_service->id()).toStdString();
               const auto username = taiga::accounts.serviceUsername(slug);
 
               m_statusBarController->showMessage({
@@ -475,38 +475,38 @@ void MainWindow::initStatusbar() {
                   .spin = false,
               });
             });
-    connect(service, &sync::Service::listEntriesFetched, this, [this]() {
+    connect(service, &sync_service::Service::listEntriesFetched, this, [this]() {
       m_statusBarController->clearMessage(StatusBarController::Source::Sync);
       setEnabled(true);
     });
-    connect(service, &sync::Service::errorOccurred, this, [this](const QString& message) {
-      const auto sender_service = qobject_cast<sync::Service*>(sender());
+    connect(service, &sync_service::Service::errorOccurred, this, [this](const QString& message) {
+      const auto sender_service = qobject_cast<sync_service::Service*>(sender());
       m_statusBarController->showMessage({
           .source = StatusBarController::Source::Sync,
-          .text = sync::tagMessage(sender_service->id(), message),
+          .text = sync_service::tagMessage(sender_service->id(), message),
           .spin = false,
       });
       setEnabled(true);
     });
-    connect(service, &sync::Service::transferProgress, this,
+    connect(service, &sync_service::Service::transferProgress, this,
             [this](const qint64 current, const qint64 total) {
               m_statusBarController->showMessage({
                   .source = StatusBarController::Source::Sync,
                   .text = tr("Synchronizing with %1... (%2)")
-                              .arg(sync::serviceName(sync::currentServiceId()))
+                              .arg(sync_service::serviceName(sync_service::currentServiceId()))
                               .arg(gui::formatTransferProgress(current, total)),
               });
             });
   }
 
-  connect(&sync::queue, &sync::Queue::changed, this, [this]() {
-    if (sync::queue.count() == 0) {
+  connect(&sync_service::queue, &sync_service::Queue::changed, this, [this]() {
+    if (sync_service::queue.count() == 0) {
       m_statusBarController->clearMessage(StatusBarController::Source::Sync);
       setEnabled(true);
     }
   });
 
-  connect(&sync::queue, &sync::Queue::processing, this, [this](const int animeId) {
+  connect(&sync_service::queue, &sync_service::Queue::processing, this, [this](const int animeId) {
     const auto item = anime::db.item(animeId);
     const auto entry = anime::db.entry(animeId);
     if (!item || !entry) return;
@@ -528,7 +528,7 @@ void MainWindow::initStatusbar() {
     });
   });
 
-  connect(&sync::queue, &sync::Queue::queuedWhileUnauthenticated, this, [this](const int animeId) {
+  connect(&sync_service::queue, &sync_service::Queue::queuedWhileUnauthenticated, this, [this](const int animeId) {
     const auto item = anime::db.item(animeId);
     if (!item) return;
 
@@ -820,8 +820,8 @@ void MainWindow::support() const {
 void MainWindow::synchronize() {
   setEnabled(false);
 
-  const auto serviceName = sync::serviceName(sync::currentServiceId());
-  const auto text = sync::willAuthenticate() ? tr("Authenticating with %1...").arg(serviceName)
+  const auto serviceName = sync_service::serviceName(sync_service::currentServiceId());
+  const auto text = sync_service::willAuthenticate() ? tr("Authenticating with %1...").arg(serviceName)
                                              : tr("Synchronizing with %1...").arg(serviceName);
 
   m_statusBarController->showMessage({
@@ -829,7 +829,7 @@ void MainWindow::synchronize() {
       .text = text,
   });
 
-  if (!sync::synchronize()) {
+  if (!sync_service::synchronize()) {
     m_statusBarController->clearMessage(StatusBarController::Source::Sync);
     setEnabled(true);
   }

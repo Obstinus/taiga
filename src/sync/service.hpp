@@ -27,7 +27,7 @@
 #include "media/anime_list.hpp"
 #include "sync/search_params.hpp"
 
-namespace sync {
+namespace sync_service {
 
 enum class ServiceId {
   Unknown,
@@ -94,4 +94,4 @@ QString animePageUrl(const int id);
 void invalidateAnime(const int id);
 void pruneMissingEntries(const QSet<int>& fetchedIds);
 
-}  // namespace sync
+}  // namespace sync_service

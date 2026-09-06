@@ -38,7 +38,7 @@
 // AniList API documentation:
 // https://docs.anilist.co/
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 namespace {
 
@@ -61,7 +61,7 @@ void preserveCachedDetails(Anime& item) {
 
 }  // namespace
 
-Service::Service() : sync::Service{ServiceId::AniList} {
+Service::Service() : sync_service::Service{ServiceId::AniList} {
   api_.setBaseUrl(QUrl{"https://graphql.anilist.co"});
 
   if (const auto token = taiga::accounts.anilistToken(); !token.empty()) {
@@ -85,7 +85,7 @@ void Service::fetchAnime(const int id) {
   const auto callback = [this, id](QRestReply& reply) {
     if (isError(reply)) {
       if (reply.httpStatus() == 404) {
-        sync::invalidateAnime(id);
+        sync_service::invalidateAnime(id);
       } else {
         handleError(*this, reply);
       }
@@ -211,7 +211,7 @@ void Service::fetchListEntries() {
     anime::db.updateItems(items);
     anime::db.updateEntries(entries);
 
-    sync::pruneMissingEntries(fetchedIds);
+    sync_service::pruneMissingEntries(fetchedIds);
     emit listEntriesFetched();
   };
 
@@ -237,12 +237,12 @@ void Service::deleteListEntry(const int id) {
   const auto callback = [this, id](QRestReply& reply) {
     if (isError(reply) && reply.httpStatus() != 404) {
       handleError(*this, reply);
-      sync::queue.complete(false, "Failed to delete list entry.");
+      sync_service::queue.complete(false, "Failed to delete list entry.");
       return;
     }
 
     anime::db.deleteEntry(id);
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.post(api_.createRequest(), data, this, callback);
@@ -284,7 +284,7 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
   const auto callback = [this](QRestReply& reply) {
     if (isError(reply)) {
       handleError(*this, reply);
-      sync::queue.complete(false, "Failed to update list entry.");
+      sync_service::queue.complete(false, "Failed to update list entry.");
       return;
     }
 
@@ -294,7 +294,7 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
 
     if (!entry) {
       handleError(*this, reply, "Could not parse list entry.");
-      sync::queue.complete(false, "Could not parse list entry.");
+      sync_service::queue.complete(false, "Could not parse list entry.");
       return;
     }
 
@@ -305,10 +305,10 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
       anime::db.updateEntry(*listEntry);
     }
 
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.post(api_.createRequest(), data, this, callback);
 }
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

@@ -41,7 +41,7 @@ enum class Status;
 struct Entry;
 }  // namespace anime::list
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 anime::AgeRating parseAgeRating(const QString& value);
 base::FuzzyDate parseFuzzyDate(const QString& value);
@@ -55,4 +55,4 @@ anime::list::Status parseListStatus(const QString& value);
 std::optional<anime::Details> parseAnime(const QJsonValue& json);
 std::optional<anime::list::Entry> parseListEntry(const QJsonValue& json, const int animeId);
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

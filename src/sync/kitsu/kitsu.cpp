@@ -38,7 +38,7 @@
 // Kitsu API documentation:
 // https://kitsu.docs.apiary.io
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 namespace {
 
@@ -50,7 +50,7 @@ constexpr int kSearchPageLimit = 20;
 
 }  // namespace
 
-Service::Service() : sync::Service{ServiceId::Kitsu} {
+Service::Service() : sync_service::Service{ServiceId::Kitsu} {
   api_.setBaseUrl(QUrl{kApiUrl});
 
   auto headers = api_.commonHeaders();
@@ -83,7 +83,7 @@ void Service::fetchAnime(const int id) {
     if (isError(reply)) {
       if (retryOnTokenExpiry(reply, [this, id] { fetchAnime(id); })) return;
       if (reply.httpStatus() == 404) {
-        sync::invalidateAnime(id);
+        sync_service::invalidateAnime(id);
       } else {
         handleError(*this, reply);
       }
@@ -169,7 +169,7 @@ void Service::fetchListEntries(const int offset, QSet<int> fetchedIds) {
     if (const auto nextOffset = pagingOffset(root["links"].toObject(), u"next"_s)) {
       fetchListEntries(*nextOffset, fetchedIds);
     } else {
-      sync::pruneMissingEntries(fetchedIds);
+      sync_service::pruneMissingEntries(fetchedIds);
       emit listEntriesFetched();
     }
   };
@@ -265,7 +265,7 @@ void Service::addListEntry(const int id, const anime::list::Fields dirty) {
         return value["detail"].toString().contains(u"has already been taken"_s);
       });
       if (duplicate) {
-        sync::queue.complete(true);
+        sync_service::queue.complete(true);
         return;
       }
     }
@@ -273,7 +273,7 @@ void Service::addListEntry(const int id, const anime::list::Fields dirty) {
     if (isError(reply)) {
       if (retryOnTokenExpiry(reply, [this, id, dirty] { addListEntry(id, dirty); })) return;
       handleError(*this, reply, json);
-      sync::queue.complete(false, "Failed to add list entry.");
+      sync_service::queue.complete(false, "Failed to add list entry.");
       return;
     }
 
@@ -282,7 +282,7 @@ void Service::addListEntry(const int id, const anime::list::Fields dirty) {
       anime::db.updateEntry(*entry);
     }
 
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.post(request, QJsonDocument(body).toJson(QJsonDocument::Compact), this, callback);
@@ -304,7 +304,7 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
       if (retryOnTokenExpiry(reply, [this, id, dirty] { updateListEntry(id, dirty); })) return;
       handleError(*this, reply,
                   reply.httpStatus() == 404 ? u"Anime list entry does not exist."_s : QString{});
-      sync::queue.complete(false, "Failed to update list entry.");
+      sync_service::queue.complete(false, "Failed to update list entry.");
       return;
     }
 
@@ -314,7 +314,7 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
       anime::db.updateEntry(*entry);
     }
 
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.patch(request, QJsonDocument(body).toJson(QJsonDocument::Compact), this, callback);
@@ -328,16 +328,16 @@ void Service::deleteListEntry(const int id) {
     if (isError(reply) && reply.httpStatus() != 404) {
       if (retryOnTokenExpiry(reply, [this, id] { deleteListEntry(id); })) return;
       handleError(*this, reply);
-      sync::queue.complete(false, "Failed to delete list entry.");
+      sync_service::queue.complete(false, "Failed to delete list entry.");
       return;
     }
 
     anime::db.deleteEntry(id);
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.deleteResource(api_.createRequest(u"/library-entries/%1"_s.arg(listEntry->id)), this,
                           callback);
 }
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

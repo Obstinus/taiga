@@ -25,14 +25,14 @@
 
 class QRestReply;
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 constexpr auto kClientId = "f6e398095cf7525360276786ec4407bc";
 constexpr auto kRedirectUrl = "https://taiga.moe/api/myanimelist/auth";
 constexpr auto kApiUrl = "https://api.myanimelist.net/v2";
 constexpr auto kTokenUrl = "https://myanimelist.net/v1/oauth2/token";
 
-class Service final : public sync::Service {
+class Service final : public sync_service::Service {
 public:
   Service();
   ~Service() = default;
@@ -53,4 +53,4 @@ private:
   bool retryOnTokenExpiry(QRestReply& reply, std::function<void()> retry);
 };
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

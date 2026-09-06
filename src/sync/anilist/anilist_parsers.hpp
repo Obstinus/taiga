@@ -39,7 +39,7 @@ enum class Status;
 struct Entry;
 }
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 base::FuzzyDate parseFuzzyDate(const QJsonValue& json);
 anime::list::Status parseListStatus(const QString& value);
@@ -50,4 +50,4 @@ anime::Type parseType(const QString& value);
 std::optional<anime::Details> parseMedia(const QJsonValue& json);
 std::optional<anime::list::Entry> parseListEntry(const QJsonValue& json);
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

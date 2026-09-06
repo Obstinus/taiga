@@ -34,7 +34,7 @@
 #include "media/anime_season.hpp"
 #include "sync/service.hpp"
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 FuzzyDate parseFuzzyDate(const QJsonValue& json) {
   return FuzzyDate{
@@ -101,7 +101,7 @@ std::optional<Anime> parseMedia(const QJsonValue& json) {
 
   Anime item{
       .id = id,
-      .ids = {{sync::ServiceId::AniList, id}},
+      .ids = {{sync_service::ServiceId::AniList, id}},
       .last_modified = QDateTime::currentSecsSinceEpoch(),
       .episode_count = json["episodes"].toInt(),
       .episode_length = json["duration"].toInt(),
@@ -120,7 +120,7 @@ std::optional<Anime> parseMedia(const QJsonValue& json) {
   };
 
   if (const int malId = json["idMal"].toInt(); malId > 0) {
-    item.ids[sync::ServiceId::MyAnimeList] = malId;
+    item.ids[sync_service::ServiceId::MyAnimeList] = malId;
   }
 
   const auto nativeTitle = json["title"]["native"].toString().toStdString();
@@ -193,4 +193,4 @@ std::optional<anime::list::Entry> parseListEntry(const QJsonValue& json) {
   };
 }
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

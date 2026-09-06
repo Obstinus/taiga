@@ -90,7 +90,7 @@ int Application::run() {
   accounts.loadAnilistToken();
   anime::db.init();
   anime::history.init();
-  sync::queue.init();
+  sync_service::queue.init();
   track::media::detection()->init();
   gui::imageProvider.init();
 

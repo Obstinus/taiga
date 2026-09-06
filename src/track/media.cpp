@@ -263,7 +263,7 @@ void Detection::saveCurrentEpisode() {
   }
   entry.watched_episodes = episodeNumber;
   anime::list::save(entry);
-  sync::synchronize();
+  sync_service::synchronize();
   track::sharing::announce(*currentEpisode_);
 }
 

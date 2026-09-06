@@ -30,7 +30,7 @@
 #include "media/anime_season.hpp"
 #include "sync/myanimelist/myanimelist.hpp"
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 int fromListScore(int value) {
   return (value * 10) / anime::list::kScoreMax;
@@ -136,4 +136,4 @@ std::string authorizationCodeUrl(std::string& codeVerifier) {
   return url.toString().toStdString();
 }
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

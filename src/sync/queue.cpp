@@ -32,7 +32,7 @@
 #include "taiga/path.hpp"
 #include "taiga/settings.hpp"
 
-namespace sync {
+namespace sync_service {
 
 Queue::Queue() : QObject{} {}
 
@@ -287,4 +287,4 @@ void Queue::migrateFromV1() {
   }
 }
 
-}  // namespace sync
+}  // namespace sync_service

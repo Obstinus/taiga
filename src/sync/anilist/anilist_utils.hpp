@@ -37,11 +37,11 @@ namespace anime::list {
 enum class Status;
 }
 
-namespace sync {
+namespace sync_service {
 struct SearchParams;
 }
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 QJsonObject fromFuzzyDate(const base::FuzzyDate& date);
 QString fromListStatus(const anime::list::Status value);
@@ -56,4 +56,4 @@ QString gql(const QString& name);
 std::string animePageUrl(const int id);
 std::string requestTokenUrl();
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

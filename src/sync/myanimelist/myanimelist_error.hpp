@@ -22,15 +22,15 @@
 
 class QRestReply;
 
-namespace sync {
+namespace sync_service {
 class Service;
 }
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 bool isError(const QRestReply& reply);
 bool isTokenExpired(const QRestReply& reply);
 
-void handleError(sync::Service& service, QRestReply& reply, const QString& message = {});
+void handleError(sync_service::Service& service, QRestReply& reply, const QString& message = {});
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

@@ -24,13 +24,13 @@
 class QComboBox;
 class QDoubleSpinBox;
 
-namespace sync {
+namespace sync_service {
 struct Rating;
 }
 
 namespace gui {
 
-QList<sync::Rating> currentRatingList();
+QList<sync_service::Rating> currentRatingList();
 QString formatRating(int value, QString placeholder = "-");
 
 void populateRatingComboBox(QComboBox* comboBox);

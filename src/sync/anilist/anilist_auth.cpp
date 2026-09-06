@@ -27,7 +27,7 @@
 #include "sync/anilist/anilist_utils.hpp"
 #include "taiga/accounts.hpp"
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 void Service::authenticateUser() {
   taiga::accounts.loadAnilistToken([this] {
@@ -77,4 +77,4 @@ void Service::authenticateUser() {
   });
 }
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

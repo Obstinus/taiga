@@ -30,7 +30,7 @@
 #include "media/anime_list.hpp"
 #include "sync/service.hpp"
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 anime::AgeRating parseAgeRating(const QString& value) {
   using anime::AgeRating;
@@ -122,7 +122,7 @@ std::optional<anime::Details> parseAnime(const QJsonValue& json) {
 
   anime::Details item{
       .id = id,
-      .ids = {{sync::ServiceId::MyAnimeList, id}},
+      .ids = {{sync_service::ServiceId::MyAnimeList, id}},
       .last_modified = QDateTime::currentSecsSinceEpoch(),
       .episode_count = json["num_episodes"].toInt(),
       .episode_length = parseEpisodeLength(json["average_episode_duration"].toInt()),
@@ -177,4 +177,4 @@ std::optional<anime::list::Entry> parseListEntry(const QJsonValue& json, const i
   };
 }
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

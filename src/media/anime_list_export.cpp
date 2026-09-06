@@ -141,10 +141,10 @@ bool exportAsXml(const std::string& path) {
     const auto item = anime::db.item(entry.anime_id);
     xml.writeStartElement("anime");
     int malId = 0;
-    if (const auto it = item->ids.find(sync::ServiceId::MyAnimeList); it != item->ids.end()) {
+    if (const auto it = item->ids.find(sync_service::ServiceId::MyAnimeList); it != item->ids.end()) {
       malId = it->second;
     }
-    if (malId == 0 && sync::currentServiceId() == sync::ServiceId::MyAnimeList) {
+    if (malId == 0 && sync_service::currentServiceId() == sync_service::ServiceId::MyAnimeList) {
       malId = item->id;
     }
     xml.writeNumberElement("series_animedb_id", malId);
@@ -157,7 +157,7 @@ bool exportAsXml(const std::string& path) {
     xml.writeTextElement("my_finish_date", entry.date_completed.to_string());
     xml.writeTextElement("my_fansub_group", "");
     xml.writeTextElement("my_rated", "");
-    xml.writeNumberElement("my_score", sync::myanimelist::fromListScore(entry.score));
+    xml.writeNumberElement("my_score", sync_service::myanimelist::fromListScore(entry.score));
     xml.writeTextElement("my_dvd", "");
     xml.writeTextElement("my_storage", "");
     xml.writeTextElement("my_status", format_my_status(entry.status));
@@ -168,7 +168,7 @@ bool exportAsXml(const std::string& path) {
     xml.writeTextElement("my_tags", "");
     xml.writeNumberElement("my_rewatching", entry.rewatching);
     xml.writeNumberElement("my_rewatching_ep", entry.rewatching_ep);
-    xml.writeNumberElement("update_on_import", sync::queue.hasItem(entry.anime_id) ? 1 : 0);
+    xml.writeNumberElement("update_on_import", sync_service::queue.hasItem(entry.anime_id) ? 1 : 0);
     xml.writeEndElement();
   }
 

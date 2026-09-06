@@ -57,7 +57,7 @@ EpisodeDetails details(const Episode& episode) {
       .total = item && item->episode_count > 0 ? QString::number(item->episode_count) : "?",
       .url = {},
   };
-  if (item) result.url = sync::animePageUrl(item->id);
+  if (item) result.url = sync_service::animePageUrl(item->id);
   return result;
 }
 

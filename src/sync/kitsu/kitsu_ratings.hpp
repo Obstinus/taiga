@@ -21,11 +21,11 @@
 #include <QList>
 #include <QString>
 
-namespace sync {
+namespace sync_service {
 struct Rating;
 }
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 enum class RatingSystem {
   Simple,
@@ -41,4 +41,4 @@ int parseListScore(const int value);
 int fromListScore(const int value);
 RatingSystem parseRatingSystem(const QString& value);
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

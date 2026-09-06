@@ -25,7 +25,7 @@
 
 class QRestReply;
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 // Application registration has not yet been implemented on Kitsu's end, so all requests are made
 // with the following public client ID and secret.
@@ -48,7 +48,7 @@ enum ListStatus {
   kDropped,
 };
 
-class Service final : public sync::Service {
+class Service final : public sync_service::Service {
 public:
   Service();
   ~Service() = default;
@@ -69,4 +69,4 @@ private:
   bool retryOnTokenExpiry(QRestReply& reply, std::function<void()> retry);
 };
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

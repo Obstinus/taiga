@@ -21,13 +21,13 @@
 #include <QList>
 #include <QString>
 
-namespace sync {
+namespace sync_service {
 struct Rating;
 }
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
-QList<sync::Rating> ratingList();
+QList<sync_service::Rating> ratingList();
 QString formatRating(const int value);
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

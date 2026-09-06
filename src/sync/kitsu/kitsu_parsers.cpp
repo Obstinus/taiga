@@ -30,7 +30,7 @@
 #include "sync/kitsu/kitsu_ratings.hpp"
 #include "sync/service.hpp"
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 namespace {
 
@@ -138,7 +138,7 @@ std::optional<anime::Details> parseAnime(const QJsonValue& data, const QJsonArra
 
   anime::Details item{
       .id = id,
-      .ids = {{sync::ServiceId::Kitsu, id}},
+      .ids = {{sync_service::ServiceId::Kitsu, id}},
       .last_modified = QDateTime::currentSecsSinceEpoch(),
       .episode_count = attributes["episodeCount"].toInt(),
       .episode_length = attributes["episodeLength"].toInt(),
@@ -195,9 +195,9 @@ std::optional<anime::Details> parseAnime(const QJsonValue& data, const QJsonArra
       if (!ok || externalId <= 0) continue;
 
       if (site.compare("myanimelist/anime", Qt::CaseInsensitive) == 0) {
-        item.ids.try_emplace(sync::ServiceId::MyAnimeList, externalId);
+        item.ids.try_emplace(sync_service::ServiceId::MyAnimeList, externalId);
       } else if (site.compare("anilist/anime", Qt::CaseInsensitive) == 0) {
-        item.ids.try_emplace(sync::ServiceId::AniList, externalId);
+        item.ids.try_emplace(sync_service::ServiceId::AniList, externalId);
       }
     } else if (type == "categories") {
       item.genres.push_back(resource["attributes"]["title"].toString().toStdString());
@@ -230,4 +230,4 @@ std::optional<anime::list::Entry> parseListEntry(const QJsonValue& json, const i
   };
 }
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

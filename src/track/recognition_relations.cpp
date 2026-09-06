@@ -38,11 +38,11 @@ std::mutex rulesMutex;
 int loadedService = -2;
 
 int serviceIndex() {
-  switch (sync::currentServiceId()) {
-    case sync::ServiceId::MyAnimeList: return 0;
-    case sync::ServiceId::Kitsu: return 1;
-    case sync::ServiceId::AniList: return 2;
-    case sync::ServiceId::Unknown: return -1;
+  switch (sync_service::currentServiceId()) {
+    case sync_service::ServiceId::MyAnimeList: return 0;
+    case sync_service::ServiceId::Kitsu: return 1;
+    case sync_service::ServiceId::AniList: return 2;
+    case sync_service::ServiceId::Unknown: return -1;
   }
   return -1;
 }

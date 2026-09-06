@@ -21,11 +21,11 @@
 #include <QList>
 #include <QString>
 
-namespace sync {
+namespace sync_service {
 struct Rating;
 }
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 enum class RatingSystem {
   Point_100,
@@ -37,10 +37,10 @@ enum class RatingSystem {
 
 constexpr auto kDefaultRatingSystem = RatingSystem::Point_10;
 
-QList<sync::Rating> ratingList(const RatingSystem ratingSystem);
+QList<sync_service::Rating> ratingList(const RatingSystem ratingSystem);
 
 QString formatRating(int value, const RatingSystem ratingSystem);
 
 RatingSystem parseRatingSystem(const QString& value);
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

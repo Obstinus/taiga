@@ -137,7 +137,7 @@ void ImageProvider::reloadPoster(const int id) {
 
 QString ImageProvider::fileName(const int id) const {
   const auto path = QString::fromStdString(taiga::get_data_path());
-  const auto service = sync::serviceSlug(sync::currentServiceId());
+  const auto service = sync_service::serviceSlug(sync_service::currentServiceId());
 
   auto extension = u"jpg"_s;
   if (const auto item = anime::db.item(id); item && !item->image_url.empty()) {

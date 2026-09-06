@@ -34,7 +34,7 @@ namespace anime::list {
 enum class Status;
 }
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 int fromListScore(int value);
 QString fromListStatus(const anime::list::Status value);
@@ -48,4 +48,4 @@ std::optional<int> pagingOffset(const QJsonObject& paging, const QString& key);
 std::string animePageUrl(const int id);
 std::string authorizationCodeUrl(std::string& codeVerifier);
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

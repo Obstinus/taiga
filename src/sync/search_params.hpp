@@ -24,7 +24,7 @@
 #include "media/anime.hpp"
 #include "media/anime_season.hpp"
 
-namespace sync {
+namespace sync_service {
 
 enum class SearchSort {
   Title,
@@ -46,4 +46,4 @@ struct SearchParams {
   bool operator==(const SearchParams&) const = default;
 };
 
-}  // namespace sync
+}  // namespace sync_service

@@ -37,7 +37,7 @@
 // MyAnimeList API documentation:
 // https://myanimelist.net/apiconfig/references/api/v2
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 namespace {
 
@@ -47,7 +47,7 @@ constexpr int kSeasonPageLimit = 500;
 
 }  // namespace
 
-Service::Service() : sync::Service{ServiceId::MyAnimeList} {
+Service::Service() : sync_service::Service{ServiceId::MyAnimeList} {
   api_.setBaseUrl(QUrl{kApiUrl});
 
   if (const auto token = taiga::accounts.myanimelistAccessToken(); !token.empty()) {
@@ -69,7 +69,7 @@ void Service::fetchAnime(const int id) {
     if (isError(reply)) {
       if (retryOnTokenExpiry(reply, [this, id] { fetchAnime(id); })) return;
       if (reply.httpStatus() == 404) {
-        sync::invalidateAnime(id);
+        sync_service::invalidateAnime(id);
       } else {
         handleError(*this, reply);
       }
@@ -196,7 +196,7 @@ void Service::fetchListEntries(const int offset, QSet<int> fetchedIds) {
     if (const auto nextOffset = pagingOffset(root["paging"].toObject(), u"next"_s)) {
       fetchListEntries(*nextOffset, fetchedIds);
     } else {
-      sync::pruneMissingEntries(fetchedIds);
+      sync_service::pruneMissingEntries(fetchedIds);
       emit listEntriesFetched();
     }
   };
@@ -213,12 +213,12 @@ void Service::deleteListEntry(const int id) {
     if (isError(reply) && reply.httpStatus() != 404) {
       if (retryOnTokenExpiry(reply, [this, id] { deleteListEntry(id); })) return;
       handleError(*this, reply);
-      sync::queue.complete(false, "Failed to delete list entry.");
+      sync_service::queue.complete(false, "Failed to delete list entry.");
       return;
     }
 
     anime::db.deleteEntry(id);
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.deleteResource(api_.createRequest(u"/anime/%1/my_list_status"_s.arg(id)), this,
@@ -265,14 +265,14 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
       if (retryOnTokenExpiry(reply, [this, id, dirty] { updateListEntry(id, dirty); })) return;
       handleError(*this, reply,
                   reply.httpStatus() == 404 ? u"Anime list entry does not exist."_s : QString{});
-      sync::queue.complete(false, "Failed to update list entry.");
+      sync_service::queue.complete(false, "Failed to update list entry.");
       return;
     }
 
     const auto json = reply.readJson();
     if (!json) {
       handleError(*this, reply, "Could not parse list entry.");
-      sync::queue.complete(false, "Could not parse list entry.");
+      sync_service::queue.complete(false, "Could not parse list entry.");
       return;
     }
 
@@ -280,10 +280,10 @@ void Service::updateListEntry(const int id, const anime::list::Fields dirty) {
       anime::db.updateEntry(*entry);
     }
 
-    sync::queue.complete(true);
+    sync_service::queue.complete(true);
   };
 
   manager_.patch(request, formUrlEncode(body), this, callback);
 }
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

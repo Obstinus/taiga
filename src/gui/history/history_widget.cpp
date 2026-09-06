@@ -133,10 +133,10 @@ void HistoryWidget::clearHistory() const {
 
 void HistoryWidget::clearQueue() const {
   const auto informativeText = tr("Any changes not yet synchronized with %1 will be discarded.")
-                                   .arg(sync::serviceName(sync::currentServiceId()));
+                                   .arg(sync_service::serviceName(sync_service::currentServiceId()));
 
   if (confirm(nullptr, tr("Do you want to clear the sync queue?"), informativeText, tr("Clear"))) {
-    sync::queue.clear();
+    sync_service::queue.clear();
   }
 }
 

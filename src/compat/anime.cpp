@@ -64,11 +64,11 @@ Anime parseAnimeElement(QXmlStreamReader& xml) {
     if (xml.name() == u"id") {
       const auto source = xml.attributes().value(u"name").toString();
       const int id = XML_ELEMENT.toInt();
-      const auto service = source.isEmpty() ? sync::currentServiceId()
-                                            : sync::serviceIdFromSlug(source);
-      if (id > 0 && service != sync::ServiceId::Unknown) {
+      const auto service = source.isEmpty() ? sync_service::currentServiceId()
+                                            : sync_service::serviceIdFromSlug(source);
+      if (id > 0 && service != sync_service::ServiceId::Unknown) {
         anime.ids[service] = id;
-        if (service == sync::currentServiceId()) anime.id = id;
+        if (service == sync_service::currentServiceId()) anime.id = id;
       } else if (anime.id == anime::kUnknownId && id > 0) {
         anime.id = id;
       }

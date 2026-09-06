@@ -26,7 +26,7 @@
 
 #include "base/settings.hpp"
 
-namespace sync {
+namespace sync_service {
 
 namespace anilist {
 enum class RatingSystem;
@@ -36,7 +36,7 @@ namespace kitsu {
 enum class RatingSystem;
 }
 
-}  // namespace sync
+}  // namespace sync_service
 
 namespace taiga {
 
@@ -49,7 +49,7 @@ public:
   ~Accounts() = default;
 
   bool anilistAuthenticated() const;
-  sync::anilist::RatingSystem anilistRatingSystem() const;
+  sync_service::anilist::RatingSystem anilistRatingSystem() const;
   std::string anilistUsername() const;
   std::string anilistToken() const;
   void loadAnilistToken(std::function<void()> ready = {});
@@ -59,7 +59,7 @@ public:
   std::string kitsuAccessToken() const;
   std::string kitsuDisplayName() const;
   std::string kitsuEmail() const;
-  sync::kitsu::RatingSystem kitsuRatingSystem() const;
+  sync_service::kitsu::RatingSystem kitsuRatingSystem() const;
   std::string kitsuRefreshToken() const;
   std::string kitsuUserId() const;
   std::string kitsuUsername() const;

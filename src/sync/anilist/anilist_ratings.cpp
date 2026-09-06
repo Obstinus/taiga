@@ -25,7 +25,7 @@
 #include "media/anime_list.hpp"
 #include "sync/service.hpp"
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 QList<Rating> ratingList(const RatingSystem ratingSystem) {
   constexpr int k = anime::list::kScoreMax / 100;
@@ -175,4 +175,4 @@ RatingSystem parseRatingSystem(const QString& value) {
   return table.value(value, kDefaultRatingSystem);
 }
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

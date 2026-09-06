@@ -332,14 +332,14 @@ void Database::readSettings() {
 
 void Database::bindItemToQuery(const Anime& item, QSqlQuery& q) const {
   q.bindValue(":id", item.id);
-  q.bindValue(":mal_id", item.ids.contains(sync::ServiceId::MyAnimeList)
-                             ? item.ids.at(sync::ServiceId::MyAnimeList)
+  q.bindValue(":mal_id", item.ids.contains(sync_service::ServiceId::MyAnimeList)
+                             ? item.ids.at(sync_service::ServiceId::MyAnimeList)
                              : 0);
-  q.bindValue(":kitsu_id", item.ids.contains(sync::ServiceId::Kitsu)
-                               ? item.ids.at(sync::ServiceId::Kitsu)
+  q.bindValue(":kitsu_id", item.ids.contains(sync_service::ServiceId::Kitsu)
+                               ? item.ids.at(sync_service::ServiceId::Kitsu)
                                : 0);
-  q.bindValue(":anilist_id", item.ids.contains(sync::ServiceId::AniList)
-                                 ? item.ids.at(sync::ServiceId::AniList)
+  q.bindValue(":anilist_id", item.ids.contains(sync_service::ServiceId::AniList)
+                                 ? item.ids.at(sync_service::ServiceId::AniList)
                                  : 0);
   q.bindValue(":title", QString::fromStdString(item.titles.romaji));
   q.bindValue(":english", QString::fromStdString(item.titles.english));
@@ -420,16 +420,16 @@ Anime Database::itemFromQuery(const QSqlQuery& q) const {
       .next_episode_time = q.value("next_episode_time").toInt(),
   };
 
-  const auto addId = [&item, &q](const sync::ServiceId service, const char* column) {
+  const auto addId = [&item, &q](const sync_service::ServiceId service, const char* column) {
     const int id = q.value(column).toInt();
     if (id > 0) item.ids.emplace(service, id);
   };
-  addId(sync::ServiceId::MyAnimeList, "mal_id");
-  addId(sync::ServiceId::Kitsu, "kitsu_id");
-  addId(sync::ServiceId::AniList, "anilist_id");
+  addId(sync_service::ServiceId::MyAnimeList, "mal_id");
+  addId(sync_service::ServiceId::Kitsu, "kitsu_id");
+  addId(sync_service::ServiceId::AniList, "anilist_id");
 
-  const auto service = sync::currentServiceId();
-  if (service != sync::ServiceId::Unknown && item.id != anime::kUnknownId &&
+  const auto service = sync_service::currentServiceId();
+  if (service != sync_service::ServiceId::Unknown && item.id != anime::kUnknownId &&
       !item.ids.contains(service)) {
     item.ids[service] = item.id;
   }

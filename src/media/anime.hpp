@@ -25,7 +25,7 @@
 
 #include "base/chrono.hpp"
 
-namespace sync {
+namespace sync_service {
 enum class ServiceId;
 }
 
@@ -93,7 +93,7 @@ struct Titles {
 
 struct Details {
   int id = kUnknownId;
-  std::map<sync::ServiceId, int> ids;
+  std::map<sync_service::ServiceId, int> ids;
   std::time_t last_modified = 0;
   int episode_count = kUnknownEpisodeCount;
   int episode_length = kUnknownEpisodeLength;

@@ -22,9 +22,9 @@
 #include "sync/myanimelist/myanimelist_utils.hpp"
 #include "sync/service.hpp"
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
-QList<sync::Rating> ratingList() {
+QList<sync_service::Rating> ratingList() {
   constexpr int k = anime::list::kScoreMax / 10;
 
   // clang-format off
@@ -63,4 +63,4 @@ QString formatRating(const int value) {
   return QString::number(value);
 }
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

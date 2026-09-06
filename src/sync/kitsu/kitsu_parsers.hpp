@@ -36,7 +36,7 @@ enum class Status;
 struct Entry;
 }  // namespace anime::list
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 anime::AgeRating parseAgeRating(const QString& value);
 float parseScore(const QString& value);
@@ -52,4 +52,4 @@ QString fromListStatus(const anime::list::Status value);
 std::optional<anime::Details> parseAnime(const QJsonValue& data, const QJsonArray& included = {});
 std::optional<anime::list::Entry> parseListEntry(const QJsonValue& json, const int animeId);
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

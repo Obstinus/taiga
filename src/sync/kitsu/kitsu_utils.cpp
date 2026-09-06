@@ -31,7 +31,7 @@
 #include "sync/kitsu/kitsu_ratings.hpp"
 #include "sync/search_params.hpp"
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 QString fromSearchParams(const SearchParams& params) {
   // Text search already returns results in relevance order.
@@ -234,4 +234,4 @@ std::string animePageUrl(const int id) {
   return std::format("https://kitsu.app/anime/{}", id);
 }
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

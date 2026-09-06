@@ -34,11 +34,11 @@ enum class Status;
 enum class Type;
 }  // namespace anime
 
-namespace sync {
+namespace sync_service {
 struct SearchParams;
 }
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 QString fromSearchParams(const SearchParams& params);
 QString fromSeasonName(const anime::SeasonName name);
@@ -58,4 +58,4 @@ QString userFields();
 
 std::string animePageUrl(const int id);
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu

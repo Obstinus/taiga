@@ -22,13 +22,13 @@
 
 class QRestReply;
 
-namespace sync {
+namespace sync_service {
 class Service;
 }
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 bool isError(const QRestReply& reply);
-void handleError(sync::Service& service, QRestReply& reply, const QString& message = {});
+void handleError(sync_service::Service& service, QRestReply& reply, const QString& message = {});
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

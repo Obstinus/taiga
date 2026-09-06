@@ -107,9 +107,9 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
 
   auto accountForm = new QFormLayout;
   auto serviceBox = new QComboBox(ui_->accountsPage);
-  serviceBox->addItem(sync::serviceName(sync::ServiceId::AniList), "anilist");
-  serviceBox->addItem(sync::serviceName(sync::ServiceId::Kitsu), "kitsu");
-  serviceBox->addItem(sync::serviceName(sync::ServiceId::MyAnimeList), "myanimelist");
+  serviceBox->addItem(sync_service::serviceName(sync_service::ServiceId::AniList), "anilist");
+  serviceBox->addItem(sync_service::serviceName(sync_service::ServiceId::Kitsu), "kitsu");
+  serviceBox->addItem(sync_service::serviceName(sync_service::ServiceId::MyAnimeList), "myanimelist");
   const auto currentService = QString::fromStdString(taiga::settings.service());
   const auto currentIndex = serviceBox->findData(currentService);
   if (currentIndex >= 0) serviceBox->setCurrentIndex(currentIndex);
@@ -131,11 +131,11 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   accountsLayout->addStretch();
 
   const auto refreshAccount = [serviceBox, username, status] {
-    const auto service = sync::serviceIdFromSlug(serviceBox->currentData().toString());
-    const auto serviceSlug = sync::serviceSlug(service).toStdString();
+    const auto service = sync_service::serviceIdFromSlug(serviceBox->currentData().toString());
+    const auto serviceSlug = sync_service::serviceSlug(service).toStdString();
     const auto name = taiga::accounts.serviceUsername(serviceSlug);
     username->setText(name.empty() ? QObject::tr("Not configured") : QString::fromStdString(name));
-    status->setText(sync::isUserAuthenticated() ? QObject::tr("Authenticated")
+    status->setText(sync_service::isUserAuthenticated() ? QObject::tr("Authenticated")
                                                 : QObject::tr("Not authenticated"));
   };
   refreshAccount();
@@ -155,9 +155,9 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     }
   });
   const auto signIn = [this, serviceBox, authenticate, refreshAccount](bool replaceToken) {
-    const auto service = sync::serviceIdFromSlug(serviceBox->currentData().toString());
-    if (service != sync::ServiceId::AniList) {
-      sync::authenticateUser();
+    const auto service = sync_service::serviceIdFromSlug(serviceBox->currentData().toString());
+    if (service != sync_service::ServiceId::AniList) {
+      sync_service::authenticateUser();
       return;
     }
     authenticate->setEnabled(false);
@@ -168,7 +168,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
       authenticate->setEnabled(true);
       if (serviceBox->currentData().toString() != "anilist") return;
       if (replaceToken || taiga::accounts.anilistToken().empty()) {
-        QDesktopServices::openUrl(QUrl{QString::fromStdString(sync::anilist::requestTokenUrl())});
+        QDesktopServices::openUrl(QUrl{QString::fromStdString(sync_service::anilist::requestTokenUrl())});
         bool ok = false;
         const auto token =
             QInputDialog::getText(guard, tr("AniList authorization"),
@@ -183,12 +183,12 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
                                             authenticate->setEnabled(true);
                                             if (serviceBox->currentData().toString() != "anilist")
                                               return;
-                                            sync::authenticateUser();
+                                            sync_service::authenticateUser();
                                             refreshAccount();
                                           });
         return;
       }
-      sync::authenticateUser();
+      sync_service::authenticateUser();
       refreshAccount();
     });
   };
@@ -202,7 +202,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
           });
   connect(replaceToken, &QPushButton::clicked, this, [signIn] { signIn(true); });
   connect(synchronize, &QPushButton::clicked, this, [refreshAccount] {
-    sync::synchronize();
+    sync_service::synchronize();
     refreshAccount();
   });
   connect(&taiga::accounts, &taiga::Accounts::authenticationChanged, this,

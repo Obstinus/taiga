@@ -165,7 +165,7 @@ std::string Settings::proxyPassword() const {
 }
 
 std::string Settings::service() const {
-  return value("v1.service", sync::serviceSlug(sync::ServiceId::AniList)).toString().toStdString();
+  return value("v1.service", sync_service::serviceSlug(sync_service::ServiceId::AniList)).toString().toStdString();
 }
 
 std::vector<std::string> Settings::libraryFolders() const {

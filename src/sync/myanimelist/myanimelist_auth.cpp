@@ -28,7 +28,7 @@
 #include "sync/myanimelist/myanimelist_utils.hpp"
 #include "taiga/accounts.hpp"
 
-namespace sync::myanimelist {
+namespace sync_service::myanimelist {
 
 bool Service::retryOnTokenExpiry(QRestReply& reply, std::function<void()> retry) {
   if (!isTokenExpired(reply)) return false;
@@ -144,4 +144,4 @@ void Service::authenticateUser() {
   manager_.get(api_.createRequest(u"/users/@me"_s), this, callback);
 }
 
-}  // namespace sync::myanimelist
+}  // namespace sync_service::myanimelist

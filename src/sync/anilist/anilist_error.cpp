@@ -29,7 +29,7 @@
 #include "sync/service.hpp"
 #include "taiga/network.hpp"
 
-namespace sync::anilist {
+namespace sync_service::anilist {
 
 namespace {
 
@@ -67,7 +67,7 @@ bool isError(const QRestReply& reply) {
   return !reply.isHttpStatusSuccess() || reply.hasError();
 }
 
-void handleError(sync::Service& service, QRestReply& reply, const QString& message) {
+void handleError(sync_service::Service& service, QRestReply& reply, const QString& message) {
   if (taiga::isDdosProtectionActive(reply)) {
     const auto server = QString::fromUtf8(reply.networkReply()->rawHeader("Server"));
     const auto description =
@@ -99,4 +99,4 @@ void handleError(sync::Service& service, QRestReply& reply, const QString& messa
   }
 }
 
-}  // namespace sync::anilist
+}  // namespace sync_service::anilist

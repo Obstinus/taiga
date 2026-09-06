@@ -200,9 +200,9 @@ bool Accounts::anilistAuthenticated() const {
   return anilistAuthenticated_;
 }
 
-sync::anilist::RatingSystem Accounts::anilistRatingSystem() const {
+sync_service::anilist::RatingSystem Accounts::anilistRatingSystem() const {
   const auto ratingSystem = value("anilist.ratingSystem").toString();
-  return sync::anilist::parseRatingSystem(ratingSystem);
+  return sync_service::anilist::parseRatingSystem(ratingSystem);
 }
 
 std::string Accounts::anilistUsername() const {
@@ -229,9 +229,9 @@ std::string Accounts::kitsuEmail() const {
   return value("kitsu.email").toString().toStdString();
 }
 
-sync::kitsu::RatingSystem Accounts::kitsuRatingSystem() const {
+sync_service::kitsu::RatingSystem Accounts::kitsuRatingSystem() const {
   const auto ratingSystem = value("kitsu.ratingSystem").toString();
-  return sync::kitsu::parseRatingSystem(ratingSystem);
+  return sync_service::kitsu::parseRatingSystem(ratingSystem);
 }
 
 std::string Accounts::kitsuRefreshToken() const {

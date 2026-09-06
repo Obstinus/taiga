@@ -29,7 +29,7 @@
 #include "sync/kitsu/kitsu_utils.hpp"
 #include "taiga/accounts.hpp"
 
-namespace sync::kitsu {
+namespace sync_service::kitsu {
 
 bool Service::retryOnTokenExpiry(QRestReply& reply, std::function<void()> retry) {
   if (!isTokenExpired(reply)) return false;
@@ -174,4 +174,4 @@ void Service::resolveUser(std::function<void()> onSuccess) {
   manager_.get(api_.createRequest(u"/users"_s, query), this, callback);
 }
 
-}  // namespace sync::kitsu
+}  // namespace sync_service::kitsu
