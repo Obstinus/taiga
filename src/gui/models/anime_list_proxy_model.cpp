@@ -57,45 +57,51 @@ const AnimeListProxyModelFilter& AnimeListProxyModel::filters() const {
 }
 
 void AnimeListProxyModel::setFilters(const AnimeListProxyModelFilter& filters) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
   beginFilterChange();
+#endif
   m_filter = filters;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
   endFilterChange(QSortFilterProxyModel::Direction::Rows);
+#else
+  invalidateRowsFilter();
+#endif
 }
 
 void AnimeListProxyModel::setYearFilter(std::optional<int> year) {
-  beginFilterChange();
-  m_filter.year = year;
-  endFilterChange(QSortFilterProxyModel::Direction::Rows);
+  auto filters = m_filter;
+  filters.year = year;
+  setFilters(filters);
 }
 
 void AnimeListProxyModel::setSeasonFilter(std::optional<int> season) {
-  beginFilterChange();
-  m_filter.season = season;
-  endFilterChange(QSortFilterProxyModel::Direction::Rows);
+  auto filters = m_filter;
+  filters.season = season;
+  setFilters(filters);
 }
 
 void AnimeListProxyModel::setTypeFilter(std::optional<int> type) {
-  beginFilterChange();
-  m_filter.type = type;
-  endFilterChange(QSortFilterProxyModel::Direction::Rows);
+  auto filters = m_filter;
+  filters.type = type;
+  setFilters(filters);
 }
 
 void AnimeListProxyModel::setStatusFilter(std::optional<int> status) {
-  beginFilterChange();
-  m_filter.status = status;
-  endFilterChange(QSortFilterProxyModel::Direction::Rows);
+  auto filters = m_filter;
+  filters.status = status;
+  setFilters(filters);
 }
 
 void AnimeListProxyModel::setListStatusFilter(AnimeListStatusFilter filter) {
-  beginFilterChange();
-  m_filter.listStatus = filter;
-  endFilterChange(QSortFilterProxyModel::Direction::Rows);
+  auto filters = m_filter;
+  filters.listStatus = filter;
+  setFilters(filters);
 }
 
 void AnimeListProxyModel::setTextFilter(const QString& text) {
-  beginFilterChange();
-  m_filter.text = text;
-  endFilterChange(QSortFilterProxyModel::Direction::Rows);
+  auto filters = m_filter;
+  filters.text = text;
+  setFilters(filters);
 }
 
 bool AnimeListProxyModel::filterAcceptsRow(int row, const QModelIndex& parent) const {

@@ -471,7 +471,7 @@ void MainWindow::initStatusbar() {
 
               m_statusBarController->showMessage({
                   .source = StatusBarController::Source::Sync,
-                  .text = tr("Logged in as %1.").arg(username),
+                  .text = tr("Logged in as %1.").arg(QString::fromStdString(username)),
                   .spin = false,
               });
             });
