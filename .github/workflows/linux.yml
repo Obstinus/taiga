@@ -23,7 +23,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            appstream cmake ninja-build g++ pkg-config dbus dpkg-dev \
+            appstream cmake ninja-build gcc-14 g++-14 pkg-config dbus dpkg-dev \
             desktop-file-utils \
             libsecret-1-dev
 
@@ -42,6 +42,8 @@ jobs:
         run: |
           cmake -S . -B build -G Ninja \
             -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DCMAKE_C_COMPILER=gcc-14 \
+            -DCMAKE_CXX_COMPILER=g++-14 \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DTAIGA_ENABLE_TRANSLATIONS=OFF \
             -DTAIGA_BUILD_MPRIS_PROBE=ON \
