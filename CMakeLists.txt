@@ -1,7 +1,36 @@
 cmake_minimum_required(VERSION 3.21)
 
+set(DEFAULT_VERSION "2.0.1")
+
+# Allow manual override via -DTAIGA_VERSION=x.y.z or environment variable TAIGA_VERSION
+if(NOT TAIGA_VERSION AND DEFINED ENV{TAIGA_VERSION})
+	set(TAIGA_VERSION "$ENV{TAIGA_VERSION}")
+endif()
+
+if(DEFINED TAIGA_VERSION)
+	set(TAIGA_VERSION_STRING "${TAIGA_VERSION}")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+	find_package(Git QUIET)
+	if(GIT_FOUND)
+		execute_process(
+			COMMAND ${GIT_EXECUTABLE} describe --tags --match "v*" --always
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+			OUTPUT_VARIABLE GIT_DESCRIBE_TAG
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+			ERROR_QUIET
+		)
+		if(GIT_DESCRIBE_TAG MATCHES "^v?([0-9]+\\.[0-9]+(\\.[0-9]+)?)")
+			set(TAIGA_VERSION_STRING "${CMAKE_MATCH_1}")
+		endif()
+	endif()
+endif()
+
+if(NOT TAIGA_VERSION_STRING)
+	set(TAIGA_VERSION_STRING "${DEFAULT_VERSION}")
+endif()
+
 project(Taiga
-	VERSION 2.0.1
+	VERSION ${TAIGA_VERSION_STRING}
 	DESCRIPTION "The desktop tiger"
 	HOMEPAGE_URL "https://taiga.moe/"
 	LANGUAGES CXX

@@ -13,8 +13,13 @@ optdepends=(
   'gnome-keyring: Secret Service provider for storing AniList tokens'
   'mpv-mpris: MPRIS support for mpv playback detection'
 )
-source=("taiga::git+https://github.com/Obstinus/taiga.git#tag=v${pkgver}")
+source=("taiga::git+https://github.com/Obstinus/taiga.git#branch=linux-port")
 sha256sums=('SKIP')
+
+pkgver() {
+  cd "$srcdir/taiga"
+  git describe --tags --match 'v*' | sed 's/^v//;s/-/./g'
+}
 
 prepare() {
   cd "$srcdir/taiga"
