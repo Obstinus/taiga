@@ -102,10 +102,19 @@ void Detection::poll() {
     return;
   }
 
+  const auto samePriority = [](const mpris::Result& lhs, const mpris::Result& rhs) {
+    const auto lhsFile = !lhs.media.information.empty() &&
+                         lhs.media.information.front().type == anisthesia::MediaInfoType::File;
+    const auto rhsFile = !rhs.media.information.empty() &&
+                         rhs.media.information.front().type == anisthesia::MediaInfoType::File;
+    return lhs.media.state == rhs.media.state && lhsFile == rhsFile;
+  };
+  const auto& preferred = results.front();
   const auto resultIt = std::ranges::find_if(results, [this](const mpris::Result& result) {
     return result.service == currentMprisService_;
   });
-  const auto& result = resultIt != results.end() ? *resultIt : results.front();
+  const auto& result =
+      resultIt != results.end() && samePriority(*resultIt, preferred) ? *resultIt : preferred;
 
   currentPlayer_ = result.player;
   currentMedia_ = result.media;

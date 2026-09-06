@@ -136,8 +136,8 @@ std::vector<Result> getResults(const std::vector<std::string>& disabledPlayers) 
     if (!mediaInfo) continue;
 
     anisthesia::Media media{};
-    media.state = status == u"Playing" ? anisthesia::MediaState::Playing
-                                        : anisthesia::MediaState::Paused;
+    media.state =
+        status == u"Playing" ? anisthesia::MediaState::Playing : anisthesia::MediaState::Paused;
     media.information.push_back(*mediaInfo);
 
     const auto position = unwrapVariant(readProperty(bus, service, kPlayerInterface, "Position"));
@@ -163,8 +163,19 @@ std::vector<Result> getResults(const std::vector<std::string>& disabledPlayers) 
     results.push_back(Result{std::move(player), std::move(media), service.toStdString()});
   }
 
-  std::ranges::sort(results,
-                    [](const Result& lhs, const Result& rhs) { return lhs.service < rhs.service; });
+  const auto isPlaying = [](const Result& result) {
+    return result.media.state == anisthesia::MediaState::Playing;
+  };
+  const auto isLocalFile = [](const Result& result) {
+    return !result.media.information.empty() &&
+           result.media.information.front().type == anisthesia::MediaInfoType::File;
+  };
+
+  std::ranges::sort(results, [&](const Result& lhs, const Result& rhs) {
+    if (isPlaying(lhs) != isPlaying(rhs)) return isPlaying(lhs);
+    if (isLocalFile(lhs) != isLocalFile(rhs)) return isLocalFile(lhs);
+    return lhs.service < rhs.service;
+  });
   return results;
 }
 
