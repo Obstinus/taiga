@@ -34,7 +34,7 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          archives: qtbase qtsvg
+          archives: qtbase qtsvg icu
           install-deps: true
           cache: true
 
