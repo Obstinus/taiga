@@ -130,16 +130,6 @@ void Detection::poll() {
     return;
   }
 
-  // MPRIS players may remain registered as paused after reaching the end.
-  // Treat a position at the end as a completed episode so it is saved even
-  // when no stopped event is sent.
-  const auto duration = currentMedia_->duration.count();
-  const auto position = currentMedia_->position.count();
-  if (duration > 0 && position * 100 >= duration * 95) {
-    reset();
-    return;
-  }
-
   const auto mediaInfo = currentMedia_->information.front();
   auto episode = [&mediaInfo]() {
     if (mediaInfo.type == anisthesia::MediaInfoType::File) {
@@ -169,7 +159,12 @@ void Detection::poll() {
     emit currentEpisodeChanged(episode);
   }
 
-  if (currentEpisode_ && currentMedia_->position >= kListUpdateDelay) {
+  // Apply completion to the episode identified above, including short videos.
+  // Keep it visible while the player remains registered at the end.
+  const auto duration = currentMedia_->duration.count();
+  const auto position = currentMedia_->position.count();
+  const bool finished = duration > 0 && position >= duration - duration / 20;
+  if (currentEpisode_ && (currentMedia_->position >= kListUpdateDelay || finished)) {
     saveCurrentEpisode();
   }
 }
