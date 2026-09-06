@@ -66,6 +66,18 @@ std::vector<std::string> Settings::disabledMediaPlayers() const {
          std::ranges::to<std::vector>();
 }
 
+std::string Settings::proxyHost() const {
+  return value("network.proxy.host").toString().toStdString();
+}
+
+std::string Settings::proxyUsername() const {
+  return value("network.proxy.username").toString().toStdString();
+}
+
+std::string Settings::proxyPassword() const {
+  return value("network.proxy.password").toString().toStdString();
+}
+
 std::string Settings::service() const {
   return value("v1.service", sync::serviceSlug(sync::ServiceId::AniList)).toString().toStdString();
 }
@@ -111,6 +123,18 @@ void Settings::setDisabledMediaPlayers(std::vector<std::string> players) const {
       std::views::transform([](const std::string& s) { return QString::fromStdString(s); }) |
       std::ranges::to<QList>();
   setValue("recognition.mediaPlayers.disabled", QJsonArray::fromStringList(list));
+}
+
+void Settings::setProxyHost(const std::string& host) const {
+  setValue("network.proxy.host", host);
+}
+
+void Settings::setProxyUsername(const std::string& username) const {
+  setValue("network.proxy.username", username);
+}
+
+void Settings::setProxyPassword(const std::string& password) const {
+  setValue("network.proxy.password", password);
 }
 
 void Settings::setService(const std::string& service) const {

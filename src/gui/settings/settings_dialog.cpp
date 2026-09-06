@@ -18,15 +18,24 @@
 
 #include "settings_dialog.hpp"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QDesktopServices>
+#include <QDir>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QMessageBox>
+#include <QPixmapCache>
 #include <QPushButton>
+#include <QSpinBox>
+#include <QStyleHints>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <algorithm>
 
 #include "base/string.hpp"
 #include "gui/main/main_window.hpp"
@@ -34,7 +43,11 @@
 #include "sync/anilist/anilist_utils.hpp"
 #include "sync/service.hpp"
 #include "taiga/accounts.hpp"
+#include "taiga/path.hpp"
 #include "taiga/settings.hpp"
+#include "track/media.hpp"
+#include "track/media_player.hpp"
+#include "track/recognition_cache.hpp"
 #include "ui_settings_dialog.h"
 
 #ifdef Q_OS_WINDOWS
@@ -70,13 +83,6 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   {
     auto item = add_item("check_circle", "Recognition");
     add_child(item, "Media players");
-    add_child(item, "Streaming");
-  }
-  {
-    auto item = add_item("share", "Sharing");
-    add_child(item, "Discord");
-    add_child(item, "HTTP");
-    add_child(item, "mIRC");
   }
   {
     auto item = add_item("rss_feed", "Torrents");
@@ -91,9 +97,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   auto accountsLayout = new QVBoxLayout(ui_->accountsPage);
   accountsLayout->setContentsMargins(0, 0, 0, 0);
 
-  auto accountsDescription =
-      new QLabel(tr("Choose the service used for synchronization and manage its sign-in."),
-                 ui_->accountsPage);
+  auto accountsDescription = new QLabel(
+      tr("Choose the service used for synchronization and manage its sign-in."), ui_->accountsPage);
   accountsDescription->setWordWrap(true);
   accountsLayout->addWidget(accountsDescription);
 
@@ -126,8 +131,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     const auto service = sync::serviceIdFromSlug(serviceBox->currentData().toString());
     const auto serviceSlug = sync::serviceSlug(service).toStdString();
     const auto name = taiga::accounts.serviceUsername(serviceSlug);
-    username->setText(name.empty() ? QObject::tr("Not configured")
-                                   : QString::fromStdString(name));
+    username->setText(name.empty() ? QObject::tr("Not configured") : QString::fromStdString(name));
     status->setText(sync::isUserAuthenticated() ? QObject::tr("Authenticated")
                                                 : QObject::tr("Not authenticated"));
   };
@@ -181,31 +185,226 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   torrentsLayout->addStretch();
   ui_->stackedWidget->addWidget(torrentsPage);
 
-  auto unavailablePage = new QWidget(this);
-  auto unavailableLayout = new QVBoxLayout(unavailablePage);
-  auto unavailableLabel =
-      new QLabel(tr("This settings section is not available yet."), unavailablePage);
-  unavailableLabel->setWordWrap(true);
-  unavailableLayout->addWidget(unavailableLabel);
-  unavailableLayout->addStretch();
-  ui_->stackedWidget->addWidget(unavailablePage);
+  QHash<QString, QWidget*> pages;
+  pages.insert("Accounts", ui_->accountsPage);
+  pages.insert("Torrents", torrentsPage);
+  pages.insert("Downloads", torrentsPage);
+  pages.insert("Filters", torrentsPage);
+  const auto page = [this, &pages](const QString& name, const QString& description) {
+    auto widget = new QWidget(ui_->stackedWidget);
+    auto layout = new QVBoxLayout(widget);
+    auto label = new QLabel(description, widget);
+    label->setWordWrap(true);
+    layout->addWidget(label);
+    ui_->stackedWidget->addWidget(widget);
+    pages.insert(name, widget);
+    return layout;
+  };
+
+  auto application = page("Application", tr("Choose the appearance of the application."));
+  auto colors = new QComboBox(this);
+  colors->addItem(tr("System default"), static_cast<int>(Qt::ColorScheme::Unknown));
+  colors->addItem(tr("Light"), static_cast<int>(Qt::ColorScheme::Light));
+  colors->addItem(tr("Dark"), static_cast<int>(Qt::ColorScheme::Dark));
+  colors->setCurrentIndex(colors->findData(static_cast<int>(taiga::settings.appColorScheme())));
+  auto appearance = new QFormLayout;
+  appearance->addRow(tr("Color scheme:"), colors);
+  application->addLayout(appearance);
+  application->addStretch();
+
+  auto animeList = page("Anime List", tr("Choose the title language used in your anime list. "
+                                         "Reopen the application to refresh existing views."));
+  auto language = new QComboBox(this);
+  language->addItem(tr("Romaji"), static_cast<int>(anime::TitleLanguage::Romaji));
+  language->addItem(tr("English"), static_cast<int>(anime::TitleLanguage::English));
+  language->addItem(tr("Native"), static_cast<int>(anime::TitleLanguage::Native));
+  language->setCurrentIndex(language->findData(static_cast<int>(taiga::settings.titleLanguage())));
+  auto titles = new QFormLayout;
+  titles->addRow(tr("Title language:"), language);
+  animeList->addLayout(titles);
+  auto synchronization =
+      new QCheckBox(tr("Enable synchronization with the selected service"), this);
+  synchronization->setChecked(taiga::settings.syncEnabled());
+  animeList->addWidget(synchronization);
+  animeList->addStretch();
+
+  auto library =
+      page("Library", tr("Folders searched for local episodes. Changes apply to playback "
+                         "after saving; reopen the application to refresh the library view."));
+  auto folders = new QListWidget(this);
+  for (const auto& folder : taiga::settings.libraryFolders())
+    folders->addItem(QString::fromStdString(folder));
+  library->addWidget(folders);
+  auto folderActions = new QHBoxLayout;
+  auto addFolder = new QPushButton(tr("Add folder..."), this);
+  auto removeFolder = new QPushButton(tr("Remove selected"), this);
+  folderActions->addWidget(addFolder);
+  folderActions->addWidget(removeFolder);
+  folderActions->addStretch();
+  library->addLayout(folderActions);
+  connect(addFolder, &QPushButton::clicked, this, [this, folders] {
+    const auto folder = QFileDialog::getExistingDirectory(this, tr("Library folder"));
+    if (!folder.isEmpty() && folders->findItems(folder, Qt::MatchExactly).isEmpty())
+      folders->addItem(QDir::cleanPath(folder));
+  });
+  connect(removeFolder, &QPushButton::clicked, this,
+          [folders] { delete folders->takeItem(folders->currentRow()); });
+
+  auto recognition = page("Recognition", tr("Detect episodes from media players. On Linux, "
+                                            "players must expose an MPRIS interface."));
+  auto interval = new QSpinBox(this);
+  interval->setRange(250, 60000);
+  interval->setSingleStep(250);
+  interval->setSuffix(tr(" ms"));
+  interval->setValue(static_cast<int>(taiga::settings.mediaDetectionInterval().count()));
+  auto detectionForm = new QFormLayout;
+  detectionForm->addRow(tr("Check interval:"), interval);
+  recognition->addLayout(detectionForm);
+  recognition->addStretch();
+
+  auto playersLayout =
+      page("Media players",
+           tr("Uncheck players to exclude them from recognition. "
+              "For an unlisted MPRIS player, add its identity or service name to the exclusions."));
+  auto playersList = new QListWidget(this);
+  playersLayout->addWidget(playersList);
+  playersLayout->addWidget(new QLabel(tr("Browsers (local files only):"), this));
+  auto browsersList = new QListWidget(this);
+  playersLayout->addWidget(browsersList);
+  const auto disabled = taiga::settings.disabledMediaPlayers();
+  std::vector<track::media::Player> players;
+  track::media::parsePlayersData(players);
+  for (const auto& player : players) {
+    auto list = player.type == anisthesia::PlayerType::WebBrowser ? browsersList : playersList;
+    const auto name = QString::fromStdString(player.name);
+    auto item = new QListWidgetItem(name, list);
+    const bool excluded = std::ranges::any_of(disabled, [&name](const auto& value) {
+      return name.compare(QString::fromStdString(value), Qt::CaseInsensitive) == 0;
+    });
+    item->setCheckState(excluded ? Qt::Unchecked : Qt::Checked);
+  }
+  auto exclusions = new QListWidget(this);
+  for (const auto& name : disabled) {
+    if (!std::ranges::any_of(players, [&name](const auto& player) {
+          return QString::fromStdString(name).compare(QString::fromStdString(player.name),
+                                                      Qt::CaseInsensitive) == 0;
+        }))
+      exclusions->addItem(QString::fromStdString(name));
+  }
+  playersLayout->addWidget(new QLabel(tr("Additional exclusions:"), this));
+  playersLayout->addWidget(exclusions);
+  auto exclusionsActions = new QHBoxLayout;
+  auto addExclusion = new QPushButton(tr("Exclude player..."), this);
+  auto removeExclusion = new QPushButton(tr("Remove exclusion"), this);
+  exclusionsActions->addWidget(addExclusion);
+  exclusionsActions->addWidget(removeExclusion);
+  playersLayout->addLayout(exclusionsActions);
+  connect(addExclusion, &QPushButton::clicked, this, [this, exclusions] {
+    const auto name =
+        QInputDialog::getText(this, tr("Exclude player"), tr("MPRIS identity or service name:"))
+            .trimmed();
+    if (!name.isEmpty() && exclusions->findItems(name, Qt::MatchFixedString).isEmpty())
+      exclusions->addItem(name);
+  });
+  connect(removeExclusion, &QPushButton::clicked, this,
+          [exclusions] { delete exclusions->takeItem(exclusions->currentRow()); });
+
+  auto advanced =
+      page("Advanced",
+           tr("Configure an HTTP proxy. Leave the address empty to use "
+              "the system default. Proxy changes take effect after restarting the application."));
+  auto proxy = new QLineEdit(QString::fromStdString(taiga::settings.proxyHost()), this);
+  proxy->setPlaceholderText(tr("http://host:8080"));
+  auto proxyUser = new QLineEdit(QString::fromStdString(taiga::settings.proxyUsername()), this);
+  auto proxyPassword = new QLineEdit(QString::fromStdString(taiga::settings.proxyPassword()), this);
+  proxyPassword->setEchoMode(QLineEdit::Password);
+  auto proxyForm = new QFormLayout;
+  proxyForm->addRow(tr("Proxy address:"), proxy);
+  proxyForm->addRow(tr("Username:"), proxyUser);
+  proxyForm->addRow(tr("Password:"), proxyPassword);
+  advanced->addLayout(proxyForm);
+  advanced->addStretch();
+
+  auto cache = page("Cache", tr("Rebuild the recognition index and release cached images from "
+                                "memory. These actions run immediately."));
+  auto rebuild = new QPushButton(tr("Rebuild recognition index"), this);
+  auto clearImages = new QPushButton(tr("Clear images from memory"), this);
+  auto openCache = new QPushButton(tr("Open image cache folder"), this);
+  auto cacheStatus = new QLabel(this);
+  cacheStatus->setWordWrap(true);
+  cache->addWidget(rebuild);
+  cache->addWidget(clearImages);
+  cache->addWidget(openCache);
+  cache->addWidget(cacheStatus);
+  cache->addStretch();
+  connect(rebuild, &QPushButton::clicked, this, [cacheStatus] {
+    track::recognition::cache()->clear();
+    track::recognition::cache()->init();
+    cacheStatus->setText(tr("Recognition index rebuilt."));
+  });
+  connect(clearImages, &QPushButton::clicked, this, [cacheStatus] {
+    QPixmapCache::clear();
+    cacheStatus->setText(tr("Images released from memory."));
+  });
+  connect(openCache, &QPushButton::clicked, this, [cacheStatus] {
+    const auto path = QDir(QString::fromStdString(taiga::get_data_path())).filePath("cache");
+    if (!QDir().mkpath(path) || !QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
+      cacheStatus->setText(tr("Could not open the cache folder."));
+  });
+
+  // Validate before accepting: Cancel never applies edited settings.
+  disconnect(ui_->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+  connect(ui_->buttonBox, &QDialogButtonBox::accepted, this, [this, proxy] {
+    auto address = proxy->text().trimmed();
+    if (!address.isEmpty()) {
+      if (!address.contains("://")) address.prepend("http://");
+      const QUrl url(address);
+      if (!url.isValid() || url.scheme() != "http" || url.host().isEmpty() || url.port(8080) < 1 ||
+          !url.userInfo().isEmpty() || (!url.path().isEmpty() && url.path() != "/") ||
+          url.hasQuery() || url.hasFragment()) {
+        QMessageBox::warning(this, tr("Invalid proxy"),
+                             tr("Enter an HTTP proxy as host:port or http://host:port."));
+        return;
+      }
+    }
+    accept();
+  });
+  connect(this, &QDialog::accepted, this, [=] {
+    taiga::settings.setAppColorScheme(static_cast<Qt::ColorScheme>(colors->currentData().toInt()));
+    qApp->styleHints()->setColorScheme(taiga::settings.appColorScheme());
+    taiga::settings.setTitleLanguage(
+        static_cast<anime::TitleLanguage>(language->currentData().toInt()));
+    taiga::settings.setSyncEnabled(synchronization->isChecked());
+    std::vector<std::string> paths;
+    for (int i = 0; i < folders->count(); ++i)
+      paths.push_back(folders->item(i)->text().toStdString());
+    taiga::settings.setLibraryFolders(std::move(paths));
+    taiga::settings.setMediaDetectionInterval(std::chrono::milliseconds(interval->value()));
+    std::vector<std::string> excluded;
+    for (auto list : {playersList, browsersList}) {
+      for (int i = 0; i < list->count(); ++i)
+        if (list->item(i)->checkState() == Qt::Unchecked)
+          excluded.push_back(list->item(i)->text().toStdString());
+    }
+    for (int i = 0; i < exclusions->count(); ++i)
+      excluded.push_back(exclusions->item(i)->text().toStdString());
+    taiga::settings.setDisabledMediaPlayers(std::move(excluded));
+    taiga::settings.setProxyHost(proxy->text().trimmed().toStdString());
+    taiga::settings.setProxyUsername(proxyUser->text().toStdString());
+    taiga::settings.setProxyPassword(proxyPassword->text().toStdString());
+    track::media::detection()->init();
+  });
 
   connect(configure, &QPushButton::clicked, this, [this] {
-    accept();
+    hide();
     mainWindow()->configureTorrents();
+    QDialog::show();
   });
 
   connect(ui_->treeWidget, &QTreeWidget::currentItemChanged, this,
-          [this, torrentsPage, unavailablePage](QTreeWidgetItem* current, QTreeWidgetItem*) {
+          [this, pages](QTreeWidgetItem* current, QTreeWidgetItem*) {
             if (current) {
-              const auto section = current->parent() ? current->parent() : current;
-              if (section->text(0) == "Accounts") {
-                ui_->stackedWidget->setCurrentWidget(ui_->accountsPage);
-              } else if (section->text(0) == "Torrents") {
-                ui_->stackedWidget->setCurrentWidget(torrentsPage);
-              } else {
-                ui_->stackedWidget->setCurrentWidget(unavailablePage);
-              }
+              ui_->stackedWidget->setCurrentWidget(pages.value(current->text(0)));
               auto text = current->text(0);
               if (current->parent()) {
                 text = u"%1 / %2"_s.arg(current->parent()->text(0), text);
@@ -213,6 +412,11 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
               ui_->titleLabel->setText(text);
             }
           });
+  ui_->treeWidget->setCurrentItem(ui_->treeWidget->topLevelItem(0));
+}
+
+SettingsDialog::~SettingsDialog() {
+  delete ui_;
 }
 
 void SettingsDialog::show(QWidget* parent) {

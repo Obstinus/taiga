@@ -34,6 +34,9 @@ public:
 
   Qt::ColorScheme appColorScheme() const;
   std::vector<std::string> disabledMediaPlayers() const;
+  std::string proxyHost() const;
+  std::string proxyUsername() const;
+  std::string proxyPassword() const;
   std::string service() const;
   std::vector<std::string> libraryFolders() const;
   std::chrono::milliseconds mediaDetectionInterval() const;
@@ -42,6 +45,9 @@ public:
 
   void setAppColorScheme(const Qt::ColorScheme scheme) const;
   void setDisabledMediaPlayers(std::vector<std::string> players) const;
+  void setProxyHost(const std::string& host) const;
+  void setProxyUsername(const std::string& username) const;
+  void setProxyPassword(const std::string& password) const;
   void setService(const std::string& service) const;
   void setLibraryFolders(std::vector<std::string> folders) const;
   void setMediaDetectionInterval(const std::chrono::milliseconds interval) const;

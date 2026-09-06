@@ -32,7 +32,7 @@ class SettingsDialog final : public QDialog {
 
 public:
   SettingsDialog(QWidget* parent);
-  ~SettingsDialog() = default;
+  ~SettingsDialog();
 
   static void show(QWidget* parent);
 

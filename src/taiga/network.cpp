@@ -18,21 +18,46 @@
 
 #include "network.hpp"
 
+#include <QNetworkProxy>
 #include <QNetworkReply>
+#include <QUrl>
 #include <QRestReply>
 
 #include "base/log.hpp"
 #include "base/string.hpp"
 #include "taiga/application.hpp"
 #include "taiga/config.h"
+#include "taiga/settings.hpp"
 
 namespace taiga {
+
+namespace {
+
+QNetworkProxy configuredProxy() {
+  const auto host = QString::fromStdString(settings.proxyHost()).trimmed();
+  if (host.isEmpty()) return QNetworkProxy{QNetworkProxy::DefaultProxy};
+
+  auto address = host;
+  if (!address.contains("://")) address.prepend("http://");
+  const QUrl url{address};
+  if (!url.isValid() || url.host().isEmpty()) {
+    qWarning() << "Ignoring invalid proxy address:" << host;
+    return QNetworkProxy{QNetworkProxy::DefaultProxy};
+  }
+
+  const auto port = url.port(8080);
+  QNetworkProxy proxy{QNetworkProxy::HttpProxy, url.host(), static_cast<quint16>(port)};
+  proxy.setUser(QString::fromStdString(settings.proxyUsername()));
+  proxy.setPassword(QString::fromStdString(settings.proxyPassword()));
+  return proxy;
+}
+
+}  // namespace
 
 NetworkAccessManager::NetworkAccessManager(QObject* parent) : QNetworkAccessManager{parent} {
   setAutoDeleteReplies(true);
   setTransferTimeout(std::chrono::seconds{10});
-
-  // @TODO: Set proxy
+  setProxy(configuredProxy());
 
   connect(this, &QNetworkAccessManager::finished, this, [](QNetworkReply* reply) {
     if (!app()->isDebug()) return;
