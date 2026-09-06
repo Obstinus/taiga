@@ -70,12 +70,18 @@ public:
 
   void init();
   void refreshPage(MainWindowPage page);
+  void refreshLibrary();
 
 public slots:
   void addNewFolder();
   void displayWindow();
+  void exportListAsMarkdown();
+  void exportListAsMyAnimeListXml();
   void navigateTo(MainWindowPage page);
   void navigateToListStatus(anime::list::Status status);
+  void playNextEpisode();
+  void playRandomAnime();
+  void scanAvailableEpisodes();
   void searchTorrents(const QString& title);
   void configureTorrents();
   void updateTitle();

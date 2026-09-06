@@ -19,6 +19,7 @@
 #pragma once
 
 #include <QMenu>
+#include <optional>
 
 #include "gui/common/anime_list_view_base.hpp"
 #include "gui/common/page_widget.hpp"
@@ -40,6 +41,7 @@ public:
 
   ListViewMode viewMode() const;
   void setViewMode(ListViewMode mode);
+  std::optional<int> currentAnimeId() const;
 
   void saveState();
 

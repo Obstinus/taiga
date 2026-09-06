@@ -20,6 +20,7 @@
 
 #include <QDebug>
 #include <algorithm>
+#include <ranges>
 
 #include "media/anime.hpp"
 #include "media/anime_db.hpp"
@@ -29,6 +30,7 @@
 #include "track/episode.hpp"
 #include "track/media_player.hpp"
 #include "track/recognition.hpp"
+#include "track/sharing.hpp"
 #ifdef Q_OS_LINUX
 #include "track/mpris.hpp"
 #endif
@@ -52,20 +54,39 @@ const std::optional<Detection::player_t> Detection::getCurrentPlayer() const {
   return currentPlayer_;
 }
 
+bool Detection::isEnabled() const {
+  return enabled_;
+}
+
 bool Detection::init() {
   if (!parsePlayersData(players_)) {
     return false;
   }
 
 #if defined(Q_OS_WINDOWS) || defined(Q_OS_LINUX)
-  const auto interval = taiga::settings.mediaDetectionInterval();
-  pollTimer_->start(interval);
+  setEnabled(taiga::settings.detectionEnabled());
 #endif
 
   return true;
 }
 
+void Detection::setEnabled(const bool enabled) {
+  enabled_ = enabled;
+
+  if (!enabled_) {
+    pollTimer_->stop();
+    reset();
+    return;
+  }
+
+#if defined(Q_OS_WINDOWS) || defined(Q_OS_LINUX)
+  pollTimer_->start(taiga::settings.mediaDetectionInterval());
+#endif
+}
+
 void Detection::poll() {
+  if (!enabled_) return;
+
 #ifdef Q_OS_WINDOWS
   const auto players = getEnabledPlayers(players_);
 
@@ -130,18 +151,42 @@ void Detection::poll() {
     return;
   }
 
-  const auto mediaInfo = currentMedia_->information.front();
-  auto episode = [&mediaInfo]() {
-    if (mediaInfo.type == anisthesia::MediaInfoType::File) {
-      const QFileInfo fileInfo{QString::fromStdString(mediaInfo.value)};
-      return track::recognition::parseFileInfo(fileInfo);
-    } else {
-      return track::recognition::parse(mediaInfo.value);
-    }
-  }();
+  const auto mediaInfoIt = std::ranges::find_if(currentMedia_->information, [](const auto& info) {
+    return info.type == anisthesia::MediaInfoType::File;
+  });
+  const auto titleInfoIt = std::ranges::find_if(currentMedia_->information, [](const auto& info) {
+    return info.type == anisthesia::MediaInfoType::Title;
+  });
+  const auto urlInfoIt = std::ranges::find_if(currentMedia_->information, [](const auto& info) {
+    return info.type == anisthesia::MediaInfoType::Url;
+  });
+
+  // Prefer a local file, then the page title, then the remote URL. MPRIS
+  // browser adapters commonly expose both title and URL for the same page.
+  const auto& mediaInfo = mediaInfoIt != currentMedia_->information.end()
+                              ? *mediaInfoIt
+                              : (titleInfoIt != currentMedia_->information.end()
+                                     ? *titleInfoIt
+                                     : (urlInfoIt != currentMedia_->information.end()
+                                            ? *urlInfoIt
+                                            : currentMedia_->information.front()));
+  Episode episode;
+  if (mediaInfo.type == anisthesia::MediaInfoType::File) {
+    episode = track::recognition::parseFileInfo(QFileInfo{QString::fromStdString(mediaInfo.value)});
+  } else {
+    const auto remoteUrl = urlInfoIt != currentMedia_->information.end() ? urlInfoIt->value : "";
+    const auto title = titleInfoIt != currentMedia_->information.end() ? titleInfoIt->value : "";
+    episode =
+        track::recognition::parseRemote(remoteUrl.empty() ? mediaInfo.value : remoteUrl, title);
+  }
 
   if (mediaInfo.type == anisthesia::MediaInfoType::File &&
       !track::recognition::isVideoFile(episode)) {
+    reset();
+    return;
+  }
+  if (mediaInfo.type != anisthesia::MediaInfoType::File &&
+      !episode.contains(anitomy::ElementKind::Title)) {
     reset();
     return;
   }
@@ -156,6 +201,7 @@ void Detection::poll() {
              << "anime ID:" << animeId;
     currentEpisode_ = episode;
     emit currentEpisodeChanged(episode);
+    track::sharing::update(episode);
   }
 
   // Apply completion to the episode identified above, including short videos.
@@ -179,6 +225,8 @@ void Detection::setCurrentEpisodeAnimeId(int animeId) {
 }
 
 void Detection::reset() {
+  const bool hadCurrentMedia =
+      currentEpisode_.has_value() || currentMedia_.has_value() || currentPlayer_.has_value();
   currentPlayer_.reset();
   currentMedia_.reset();
   currentWindowHandle_ = nullptr;
@@ -188,6 +236,7 @@ void Detection::reset() {
     currentEpisode_.reset();
     emit currentEpisodeChanged(std::nullopt);
   }
+  if (hadCurrentMedia) track::sharing::clear();
 }
 
 void Detection::saveCurrentEpisode() {
@@ -215,6 +264,7 @@ void Detection::saveCurrentEpisode() {
   entry.watched_episodes = episodeNumber;
   anime::list::save(entry);
   sync::synchronize();
+  track::sharing::announce(*currentEpisode_);
 }
 
 bool Detection::hasEpisodeChanged(const Episode& episode) const {

@@ -39,6 +39,7 @@ public:
     Sync,
     Playback,
     Export,
+    Library,
     Selection,
   };
 

@@ -48,10 +48,12 @@ public:
   const std::optional<Episode> getCurrentEpisode() const;
   const std::optional<media_t> getCurrentMedia() const;
   const std::optional<player_t> getCurrentPlayer() const;
+  bool isEnabled() const;
 
   bool init();
 
   bool isMediaIdentified() const;
+  void setEnabled(const bool enabled);
   void setCurrentEpisodeAnimeId(int animeId);
 
 signals:
@@ -72,6 +74,7 @@ private:
   std::vector<player_t> players_;
 
   QTimer* pollTimer_;
+  bool enabled_ = true;
 };
 
 inline Detection* detection() {

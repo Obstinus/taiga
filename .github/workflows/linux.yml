@@ -1,0 +1,63 @@
+name: Linux
+
+on:
+  push:
+    branches: [linux-port]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            appstream cmake ninja-build g++ pkg-config dbus dpkg-dev \
+            desktop-file-utils \
+            qt6-base-dev qt6-base-dev-tools qt6-tools-dev \
+            libsecret-1-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DTAIGA_ENABLE_TRANSLATIONS=OFF \
+            -DTAIGA_BUILD_MPRIS_PROBE=ON \
+            -DTAIGA_BUILD_TORRENT_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Validate desktop metadata
+        run: |
+          appstreamcli validate --no-net src/resources/moe.taiga.Taiga.metainfo.xml
+          desktop-file-validate src/resources/taiga.desktop
+          bash -n packaging/arch/PKGBUILD
+
+      - name: Test
+        run: |
+          dbus-run-session -- ./bin/taiga-mpris-probe --self-test
+          ctest --test-dir build --output-on-failure
+
+      - name: Package
+        run: |
+          cpack --config build/CPackConfig.cmake -G TGZ
+          cpack --config build/CPackConfig.cmake -G DEB
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: taiga-linux-packages
+          path: build/packages/*
+          if-no-files-found: error

@@ -1,0 +1,40 @@
+# Maintainer: Taiga contributors
+
+pkgname=taiga
+pkgver=2.0.0
+pkgrel=1
+pkgdesc='Anime library and progress tracker'
+arch=('x86_64')
+url='https://github.com/Obstinus/taiga'
+license=('GPL-3.0-or-later')
+depends=('libsecret' 'qt6-base' 'qt6-svg')
+makedepends=('base-devel' 'cmake' 'git' 'ninja' 'qt6-tools')
+optdepends=(
+  'gnome-keyring: Secret Service provider for storing AniList tokens'
+  'mpv-mpris: MPRIS support for mpv playback detection'
+)
+source=("taiga::git+https://github.com/Obstinus/taiga.git#tag=v${pkgver}")
+sha256sums=('SKIP')
+
+prepare() {
+  cd "$srcdir/taiga"
+  git submodule update --init --recursive
+}
+
+build() {
+  cd "$srcdir/taiga"
+  cmake -S . -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DTAIGA_PORTABLE=OFF \
+    -DTAIGA_ENABLE_TRANSLATIONS=ON \
+    -DTAIGA_BUILD_MPRIS_PROBE=OFF \
+    -DTAIGA_BUILD_TORRENT_TESTS=OFF
+  cmake --build build
+}
+
+package() {
+  cd "$srcdir/taiga"
+  DESTDIR="$pkgdir" cmake --install build
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

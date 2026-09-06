@@ -51,7 +51,13 @@ See [TORRENTS.md](TORRENTS.md) for the Qt torrent workflow and isolated tests.
 - Verify service authentication, list import and queued updates.
 - Verify translations with LinguistTools enabled.
 
-The Qt Now Playing panel currently displays a fixed `List update in 00:00`
-message. Its detection signal is connected to the panel, but no automatic
-watch-progress controller is connected. Automatic progress updates must not
-be treated as a validated feature of this port.
+The Qt Now Playing panel is connected to media detection and shows the reported
+remaining time until the 95% completion threshold. When an episode is
+identified, has a valid episode number, and synchronization is enabled, the
+progress is saved automatically at that threshold. Validate this with a local
+video and an MPRIS player that reports both position and duration.
+
+The Library menu now persists folders added through **Add new folder**, and its
+scan, playback, and export actions are connected. Remote MPRIS metadata is
+accepted when it exposes an HTTP(S) URL or title; provider-specific browser
+suffixes are normalized for supported streaming sites.

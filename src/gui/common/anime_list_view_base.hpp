@@ -21,6 +21,7 @@
 #include <QAbstractItemView>
 #include <QObject>
 #include <QTreeWidget>
+#include <optional>
 
 #include "gui/common/anime_list_context.hpp"
 
@@ -46,6 +47,8 @@ public:
   AnimeListContext context() const {
     return m_context;
   }
+
+  std::optional<int> currentAnimeId() const;
 
 public slots:
   void filterByText(const QString& text);

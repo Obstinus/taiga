@@ -77,19 +77,31 @@ bool isDisabled(const QString& candidate, const std::vector<std::string>& disabl
   });
 }
 
-std::optional<anisthesia::MediaInfo> getMediaInfo(const QVariantMap& metadata) {
+std::vector<anisthesia::MediaInfo> getMediaInfo(const QVariantMap& metadata) {
+  std::vector<anisthesia::MediaInfo> result;
   const auto uri = metadataString(metadata, u"xesam:url"_s);
+  const auto title = metadataString(metadata, u"xesam:title"_s);
 
   if (!uri.isEmpty()) {
     const QUrl url{uri};
     if (url.isLocalFile()) {
-      return anisthesia::MediaInfo{anisthesia::MediaInfoType::File,
-                                   url.toLocalFile().toStdString()};
+      result.emplace_back(anisthesia::MediaInfoType::File, url.toLocalFile().toStdString());
+    } else if (url.isValid() && (url.scheme() == u"http" || url.scheme() == u"https")) {
+      // Browser and streaming integrations expose their current page through
+      // xesam:url. Keep it alongside the page title so recognition can use
+      // either the provider URL or the human-readable episode title.
+      if (!title.isEmpty()) {
+        result.emplace_back(anisthesia::MediaInfoType::Title, title.toStdString());
+      }
+      result.emplace_back(anisthesia::MediaInfoType::Url, url.toString().toStdString());
     }
   }
 
-  // Only local files participate in detection, regardless of player identity.
-  return std::nullopt;
+  if (result.empty() && !title.isEmpty()) {
+    result.emplace_back(anisthesia::MediaInfoType::Title, title.toStdString());
+  }
+
+  return result;
 }
 
 }  // namespace
@@ -124,12 +136,12 @@ std::vector<Result> getResults(const std::vector<std::string>& disabledPlayers) 
     const auto metadata =
         unwrapVariant(readProperty(bus, service, kPlayerInterface, "Metadata")).toMap();
     const auto mediaInfo = getMediaInfo(metadata);
-    if (!mediaInfo) continue;
+    if (mediaInfo.empty()) continue;
 
     anisthesia::Media media{};
     media.state =
         status == u"Playing" ? anisthesia::MediaState::Playing : anisthesia::MediaState::Paused;
-    media.information.push_back(*mediaInfo);
+    media.information = mediaInfo;
 
     const auto position = unwrapVariant(readProperty(bus, service, kPlayerInterface, "Position"));
     bool positionOk = false;
@@ -158,8 +170,9 @@ std::vector<Result> getResults(const std::vector<std::string>& disabledPlayers) 
     return result.media.state == anisthesia::MediaState::Playing;
   };
   const auto isLocalFile = [](const Result& result) {
-    return !result.media.information.empty() &&
-           result.media.information.front().type == anisthesia::MediaInfoType::File;
+    return std::ranges::any_of(result.media.information, [](const auto& info) {
+      return info.type == anisthesia::MediaInfoType::File;
+    });
   };
 
   std::ranges::sort(results, [&](const Result& lhs, const Result& rhs) {

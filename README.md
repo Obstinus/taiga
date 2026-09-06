@@ -4,7 +4,7 @@
 
 This repository contains an experimental Linux port of [Taiga](https://taiga.moe),
 an anime library and progress tracker originally developed for Windows. The port
-uses Qt and detects local video playback through MPRIS. It includes integrations
+uses Qt and detects media playback through MPRIS. It includes integrations
 with [AniList](https://anilist.co), [Kitsu](https://kitsu.app), and
 [MyAnimeList](https://myanimelist.net); desktop and service workflows still need
 broader testing on Linux.
@@ -14,7 +14,8 @@ this Linux branch.
 
 ## Current functionality
 
-- Detect local episodes from MPRIS-enabled players and match them against the local catalog.
+- Detect local episodes and supported streaming pages from MPRIS-enabled players and match them
+  against the local catalog.
 - Display the current episode and update progress at 95% of the reported media duration,
   when identification succeeds and synchronization is enabled.
 - Browse and manage the anime list and local library.
@@ -23,11 +24,12 @@ this Linux branch.
 - Browse and search torrent RSS feeds, filter releases, show SeaDex release coloring,
   and open magnets or downloaded torrent files in the desktop's BitTorrent client.
 - Store AniList access tokens in the Linux desktop keyring.
+- Optionally announce completed episodes through Discord Rich Presence, an HTTP POST endpoint, or
+  a standard IRC connection. These integrations are disabled individually by default.
 
-Streaming detection and Sharing/Discord/HTTP/mIRC integrations are not implemented
-in the Qt port and are omitted from settings. Browser recognition accepts local
-files only; Brave is excluded by default. Torrent transfers are handled by an
-external client, and releases are not opened automatically.
+The Windows mIRC DDE protocol is not available on Linux; the Linux port uses a standard IRC
+connection instead. Torrent transfers are handled by an external client, and releases are not
+opened automatically.
 
 ## Build and run
 
@@ -98,7 +100,7 @@ cmake -S . -B build -G Ninja \
   -DTAIGA_BUILD_TORRENT_TESTS=ON
 cmake --build build --parallel 4
 dbus-run-session -- ./bin/taiga-mpris-probe --self-test
-ctest --test-dir build --output-on-failure -R torrent
+ctest --test-dir build --output-on-failure -R 'stream|torrent'
 bash tests/run_accounts_security_test.sh --keyring
 ```
 
@@ -110,6 +112,20 @@ to access your real player and desktop keyring.
 
 Additional workflow details: [torrent usage](tests/TORRENTS.md) and
 [settings acceptance checks](tests/SETTINGS.md).
+
+## Packaging
+
+Linux installs include a desktop entry, the Taiga icon, and AppStream metadata. CPack produces a
+tarball and a Debian package after configuring and building:
+
+```sh
+cpack --config build/CPackConfig.cmake -G TGZ
+cpack --config build/CPackConfig.cmake -G DEB
+```
+
+Artifacts are written to `build/packages/`. The Linux workflow in
+`.github/workflows/linux.yml` builds, tests, and publishes both artifacts for each branch update.
+An Arch Linux recipe is available at [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD).
 
 ## Links
 

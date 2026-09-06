@@ -21,6 +21,7 @@
 #include <QDesktopServices>
 #include <QHeaderView>
 #include <QLayout>
+#include <QSignalBlocker>
 #include <QUrl>
 
 #include "gui/library/library_menu.hpp"
@@ -110,6 +111,30 @@ LibraryWidget::LibraryWidget(QWidget* parent)
     if (info.isExecutable()) return;  // avoid running potentially dangerous files
     QDesktopServices::openUrl(QUrl::fromLocalFile(m_model->filePath(index)));
   });
+}
+
+void LibraryWidget::reloadFolders() {
+  const auto libraryFolders = taiga::settings.libraryFolders();
+  const auto rootPath =
+      !libraryFolders.empty() ? QString::fromStdString(libraryFolders.front()) : QString{};
+
+  const QSignalBlocker blocker{m_comboRoot};
+  m_comboRoot->clear();
+  for (const auto& folder : libraryFolders) {
+    m_comboRoot->addItem(QString::fromStdString(folder));
+  }
+  m_comboRoot->setEnabled(!rootPath.isEmpty());
+  m_comboRoot->setCurrentText(rootPath);
+  m_model->setRootPath(rootPath);
+  m_view->setRootIndex(m_model->index(rootPath));
+}
+
+std::optional<int> LibraryWidget::currentAnimeId() const {
+  const auto index = m_view->currentIndex();
+  if (!index.isValid()) return std::nullopt;
+
+  const auto id = m_model->getId(m_model->filePath(index));
+  return id > 0 ? std::optional{id} : std::nullopt;
 }
 
 void LibraryWidget::showContextMenu() const {

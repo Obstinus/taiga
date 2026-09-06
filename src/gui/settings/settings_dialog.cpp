@@ -49,6 +49,7 @@
 #include "track/media.hpp"
 #include "track/media_player.hpp"
 #include "track/recognition_cache.hpp"
+#include "track/sharing.hpp"
 #include "ui_settings_dialog.h"
 
 #ifdef Q_OS_WINDOWS
@@ -79,6 +80,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
 
   add_item("account_circle", "Accounts");
   add_item("web_asset", "Application");
+  add_item("share", "Sharing");
   add_item("list_alt", "Anime List");
   add_item("folder", "Library");
   {
@@ -247,6 +249,62 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   application->addLayout(appearance);
   application->addStretch();
 
+  auto sharing =
+      page("Sharing", tr("Announce detected episodes to optional desktop and network integrations. "
+                         "All integrations are disabled individually by default."));
+  auto sharingEnabled = new QCheckBox(tr("Enable sharing"), this);
+  sharingEnabled->setChecked(taiga::settings.sharingEnabled());
+  sharing->addWidget(sharingEnabled);
+
+  auto discordEnabled = new QCheckBox(tr("Enable Discord Rich Presence"), this);
+  discordEnabled->setChecked(taiga::settings.discordSharingEnabled());
+  auto discordId =
+      new QLineEdit(QString::fromStdString(taiga::settings.discordApplicationId()), this);
+  auto discordForm = new QFormLayout;
+  discordForm->addRow(discordEnabled);
+  discordForm->addRow(tr("Application ID:"), discordId);
+  sharing->addLayout(discordForm);
+
+  auto httpEnabled = new QCheckBox(tr("Enable HTTP announcements"), this);
+  httpEnabled->setChecked(taiga::settings.httpSharingEnabled());
+  auto httpUrl = new QLineEdit(QString::fromStdString(taiga::settings.httpSharingUrl()), this);
+  httpUrl->setPlaceholderText(tr("https://example.test/taiga"));
+  auto httpFormat =
+      new QLineEdit(QString::fromStdString(taiga::settings.httpSharingFormat()), this);
+  httpFormat->setPlaceholderText(tr("%title% - Episode %episode%"));
+  auto httpForm = new QFormLayout;
+  httpForm->addRow(httpEnabled);
+  httpForm->addRow(tr("POST URL:"), httpUrl);
+  httpForm->addRow(tr("Message format:"), httpFormat);
+  sharing->addLayout(httpForm);
+
+  auto ircEnabled = new QCheckBox(tr("Enable IRC announcements"), this);
+  ircEnabled->setChecked(taiga::settings.ircSharingEnabled());
+  auto ircServer = new QLineEdit(QString::fromStdString(taiga::settings.ircServer()), this);
+  ircServer->setPlaceholderText(tr("irc.example.test"));
+  auto ircPort = new QSpinBox(this);
+  ircPort->setRange(1, 65535);
+  ircPort->setValue(taiga::settings.ircPort());
+  auto ircNickname = new QLineEdit(QString::fromStdString(taiga::settings.ircNickname()), this);
+  auto ircChannel = new QLineEdit(QString::fromStdString(taiga::settings.ircChannel()), this);
+  auto ircFormat = new QLineEdit(QString::fromStdString(taiga::settings.ircFormat()), this);
+  auto ircAction = new QCheckBox(tr("Send as /me action"), this);
+  ircAction->setChecked(taiga::settings.ircUseAction());
+  auto ircForm = new QFormLayout;
+  ircForm->addRow(ircEnabled);
+  ircForm->addRow(tr("Server:"), ircServer);
+  ircForm->addRow(tr("Port:"), ircPort);
+  ircForm->addRow(tr("Nickname:"), ircNickname);
+  ircForm->addRow(tr("Channel:"), ircChannel);
+  ircForm->addRow(tr("Message format:"), ircFormat);
+  ircForm->addRow(ircAction);
+  sharing->addLayout(ircForm);
+  sharing->addWidget(new QLabel(
+      tr("Supported placeholders: %title%, %episode%, %total%, and %url%. IRC uses a standard "
+         "connection; the Windows-only mIRC DDE protocol is not used on Linux."),
+      this));
+  sharing->addStretch();
+
   auto animeList = page("Anime List", tr("Choose the title language used in your anime list. "
                                          "Reopen the application to refresh existing views."));
   auto language = new QComboBox(this);
@@ -264,8 +322,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   animeList->addStretch();
 
   auto library =
-      page("Library", tr("Folders searched for local episodes. Changes apply to playback "
-                         "after saving; reopen the application to refresh the library view."));
+      page("Library",
+           tr("Folders searched for local episodes. Changes apply immediately after saving."));
   auto folders = new QListWidget(this);
   for (const auto& folder : taiga::settings.libraryFolders())
     folders->addItem(QString::fromStdString(folder));
@@ -286,7 +344,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
           [folders] { delete folders->takeItem(folders->currentRow()); });
 
   auto recognition = page("Recognition", tr("Detect episodes from media players. On Linux, "
-                                            "players must expose an MPRIS interface."));
+                                            "players must expose an MPRIS interface; local files "
+                                            "and supported streaming pages can be recognized."));
   auto interval = new QSpinBox(this);
   interval->setRange(250, 60000);
   interval->setSingleStep(250);
@@ -303,7 +362,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
               "For an unlisted MPRIS player, add its identity or service name to the exclusions."));
   auto playersList = new QListWidget(this);
   playersLayout->addWidget(playersList);
-  playersLayout->addWidget(new QLabel(tr("Browsers (local files only):"), this));
+  playersLayout->addWidget(new QLabel(tr("Browsers and streaming pages:"), this));
   auto browsersList = new QListWidget(this);
   playersLayout->addWidget(browsersList);
   const auto disabled = taiga::settings.disabledMediaPlayers();
@@ -389,7 +448,7 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
 
   // Validate before accepting: Cancel never applies edited settings.
   disconnect(ui_->buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
-  connect(ui_->buttonBox, &QDialogButtonBox::accepted, this, [this, proxy] {
+  connect(ui_->buttonBox, &QDialogButtonBox::accepted, this, [this, proxy, httpEnabled, httpUrl] {
     auto address = proxy->text().trimmed();
     if (!address.isEmpty()) {
       if (!address.contains("://")) address.prepend("http://");
@@ -402,6 +461,15 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
         return;
       }
     }
+    if (httpEnabled->isChecked()) {
+      const QUrl url{httpUrl->text().trimmed()};
+      if (!url.isValid() || (url.scheme() != "http" && url.scheme() != "https") ||
+          url.host().isEmpty()) {
+        QMessageBox::warning(this, tr("Invalid HTTP sharing URL"),
+                             tr("Enter an HTTP or HTTPS URL before enabling HTTP sharing."));
+        return;
+      }
+    }
     accept();
   });
   connect(this, &QDialog::accepted, this, [=] {
@@ -410,6 +478,19 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     taiga::settings.setTitleLanguage(
         static_cast<anime::TitleLanguage>(language->currentData().toInt()));
     taiga::settings.setSyncEnabled(synchronization->isChecked());
+    taiga::settings.setSharingEnabled(sharingEnabled->isChecked());
+    taiga::settings.setDiscordSharingEnabled(discordEnabled->isChecked());
+    taiga::settings.setDiscordApplicationId(discordId->text().trimmed().toStdString());
+    taiga::settings.setHttpSharingEnabled(httpEnabled->isChecked());
+    taiga::settings.setHttpSharingUrl(httpUrl->text().trimmed().toStdString());
+    taiga::settings.setHttpSharingFormat(httpFormat->text().toStdString());
+    taiga::settings.setIrcSharingEnabled(ircEnabled->isChecked());
+    taiga::settings.setIrcServer(ircServer->text().trimmed().toStdString());
+    taiga::settings.setIrcPort(ircPort->value());
+    taiga::settings.setIrcNickname(ircNickname->text().trimmed().toStdString());
+    taiga::settings.setIrcChannel(ircChannel->text().trimmed().toStdString());
+    taiga::settings.setIrcUseAction(ircAction->isChecked());
+    taiga::settings.setIrcFormat(ircFormat->text().toStdString());
     std::vector<std::string> paths;
     for (int i = 0; i < folders->count(); ++i)
       paths.push_back(folders->item(i)->text().toStdString());
@@ -429,6 +510,12 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     taiga::settings.setProxyPassword(proxyPassword->text().toStdString());
     track::media::detection()->init();
     if (auto* window = mainWindow()) {
+      if (!taiga::settings.sharingEnabled() || !taiga::settings.discordSharingEnabled()) {
+        track::sharing::clear();
+      } else if (const auto episode = track::media::detection()->getCurrentEpisode()) {
+        track::sharing::update(*episode);
+      }
+      window->refreshLibrary();
       window->refreshPage(MainWindowPage::Home);
       window->refreshPage(MainWindowPage::Profile);
     }

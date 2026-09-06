@@ -163,9 +163,9 @@ std::vector<Service> registerFakeServices() {
                                      "Playing", localMetadata, 1000000));
   services.push_back(registerService(kServicePrefix + QStringLiteral("browser"), "brave-origin",
                                      "Playing", streamMetadata));
-  services.push_back(registerService(kServicePrefix + QStringLiteral("titleOnly"), "Browser",
-                                     "Playing", {{QStringLiteral("xesam:title"),
-                                                  QStringLiteral("Anime Title - 01")}}));
+  services.push_back(
+      registerService(kServicePrefix + QStringLiteral("titleOnly"), "Browser", "Playing",
+                      {{QStringLiteral("xesam:title"), QStringLiteral("Anime Title - 01")}}));
   return services;
 }
 
@@ -187,14 +187,22 @@ void runClient() {
   expect(local->media.position == std::chrono::milliseconds{600},
          "media position was not converted");
 
-  expect(!findResult(unfiltered, "stream"), "remote stream was incorrectly detected");
-  expect(!findResult(unfiltered, "browser"), "browser video was incorrectly detected");
-  expect(!findResult(unfiltered, "titleOnly"), "title-only media was incorrectly detected");
+  const auto* stream = findResult(unfiltered, "stream");
+  expect(stream, "remote stream was not detected");
+  if (stream) {
+    expect(stream->media.information.size() == 2, "remote metadata count is incorrect");
+    expect(stream->media.information.front().type == anisthesia::MediaInfoType::Title,
+           "remote title was not preferred");
+    expect(stream->media.information.back().type == anisthesia::MediaInfoType::Url,
+           "remote URL was not retained");
+  }
+
+  expect(findResult(unfiltered, "browser"), "browser video was not detected");
+  expect(findResult(unfiltered, "titleOnly"), "title-only media was not detected");
 
   const auto* paused = findResult(results, "paused");
   expect(paused, "paused player was not detected");
-  expect(paused->media.state == anisthesia::MediaState::Paused,
-         "paused player state is incorrect");
+  expect(paused->media.state == anisthesia::MediaState::Paused, "paused player state is incorrect");
   expect(paused->media.position == std::chrono::milliseconds{2222},
          "paused media position was not converted");
   expect(!findResult(results, "disabled"), "disabled player was incorrectly detected");

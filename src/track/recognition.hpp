@@ -29,6 +29,7 @@ class Episode;
 namespace track::recognition {
 
 Episode parse(std::string_view input, const anitomy::Options options = {});
+Episode parseRemote(std::string_view url, std::string_view title = {});
 Episode parseFileInfo(const QFileInfo& info, const anitomy::Options options = {});
 
 int identify(Episode& episode);

@@ -19,6 +19,7 @@
 #pragma once
 
 #include <QTreeView>
+#include <optional>
 
 #include "gui/common/combobox.hpp"
 #include "gui/common/page_widget.hpp"
@@ -34,6 +35,9 @@ class LibraryWidget final : public PageWidget {
 public:
   LibraryWidget(QWidget* parent);
   ~LibraryWidget() = default;
+
+  void reloadFolders();
+  std::optional<int> currentAnimeId() const;
 
 private:
   void showContextMenu() const;

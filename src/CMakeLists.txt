@@ -125,6 +125,10 @@ target_sources(taiga PRIVATE
 	track/recognition_validate.hpp
 	track/scanner.cpp
 	track/scanner.hpp
+	track/sharing.cpp
+	track/sharing.hpp
+	track/stream.cpp
+	track/stream.hpp
 	track/seadex.cpp
 	track/seadex.hpp
 	track/torrent_feed.cpp
@@ -192,6 +196,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	install(FILES resources/taiga.desktop
 		DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
 	)
+	install(FILES resources/moe.taiga.Taiga.metainfo.xml
+		DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo
+	)
 	install(FILES resources/icons/taiga.png
 		DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
 	)
@@ -201,6 +208,14 @@ add_subdirectory(gui)
 add_subdirectory(resources)
 
 if (TAIGA_BUILD_TORRENT_TESTS)
+	add_executable(taiga-stream-test
+		${CMAKE_SOURCE_DIR}/tests/stream_test.cpp
+		track/stream.cpp
+		track/stream.hpp
+	)
+	target_link_libraries(taiga-stream-test PRIVATE Qt6::Core)
+	add_test(NAME stream COMMAND taiga-stream-test)
+
 	add_executable(taiga-torrent-feed-test
 		${CMAKE_SOURCE_DIR}/tests/torrent_feed_test.cpp
 		track/torrent_feed.cpp

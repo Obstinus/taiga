@@ -21,6 +21,7 @@
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
+#include <algorithm>
 #include <ranges>
 
 #include "base/string.hpp"
@@ -38,8 +39,8 @@ void Settings::init() const {
 
   const auto migrateTorrentSettings = [&] {
     const auto legacyPath = std::format("{}/v1/settings.xml", get_data_path());
-    const auto torrentPath = QDir(QString::fromStdString(get_data_path()))
-                                 .filePath(QStringLiteral("torrents.json"));
+    const auto torrentPath =
+        QDir(QString::fromStdString(get_data_path())).filePath(QStringLiteral("torrents.json"));
     if (!QFile::exists(QString::fromStdString(legacyPath)) || QFile::exists(torrentPath)) return;
 
     if (auto torrentSettings = compat::v1::readTorrentSettings(legacyPath)) {
@@ -87,11 +88,68 @@ Qt::ColorScheme Settings::appColorScheme() const {
       .value<Qt::ColorScheme>();
 }
 
+bool Settings::detectionEnabled() const {
+  return value("recognition.enabled", true).toBool();
+}
+
 std::vector<std::string> Settings::disabledMediaPlayers() const {
   return value("recognition.mediaPlayers.disabled", QJsonArray{QStringLiteral("Brave")})
-             .toJsonArray().toVariantList() |
+             .toJsonArray()
+             .toVariantList() |
          std::views::transform([](const QVariant& v) { return v.toString().toStdString(); }) |
          std::ranges::to<std::vector>();
+}
+
+bool Settings::sharingEnabled() const {
+  return value("sharing.enabled", true).toBool();
+}
+
+bool Settings::discordSharingEnabled() const {
+  return value("sharing.discord.enabled", false).toBool();
+}
+
+std::string Settings::discordApplicationId() const {
+  return value("sharing.discord.applicationId", "379871385176244224").toString().toStdString();
+}
+
+bool Settings::httpSharingEnabled() const {
+  return value("sharing.http.enabled", false).toBool();
+}
+
+std::string Settings::httpSharingUrl() const {
+  return value("sharing.http.url").toString().toStdString();
+}
+
+std::string Settings::httpSharingFormat() const {
+  return value("sharing.http.format", "%title% - Episode %episode%").toString().toStdString();
+}
+
+bool Settings::ircSharingEnabled() const {
+  return value("sharing.irc.enabled", false).toBool();
+}
+
+std::string Settings::ircServer() const {
+  return value("sharing.irc.server").toString().toStdString();
+}
+
+int Settings::ircPort() const {
+  return value("sharing.irc.port", 6667).toInt();
+}
+
+std::string Settings::ircNickname() const {
+  return value("sharing.irc.nickname", "Taiga").toString().toStdString();
+}
+
+std::string Settings::ircChannel() const {
+  return value("sharing.irc.channel", "#taiga").toString().toStdString();
+}
+
+bool Settings::ircUseAction() const {
+  return value("sharing.irc.useAction", false).toBool();
+}
+
+std::string Settings::ircFormat() const {
+  return value("sharing.irc.format", "%title% - Episode %episode%").toString().toStdString();
 }
 
 std::string Settings::proxyHost() const {
@@ -145,12 +203,68 @@ void Settings::setAppColorScheme(const Qt::ColorScheme scheme) const {
   setValue("app.colorScheme", static_cast<int>(scheme));
 }
 
+void Settings::setDetectionEnabled(const bool enabled) const {
+  setValue("recognition.enabled", enabled);
+}
+
 void Settings::setDisabledMediaPlayers(std::vector<std::string> players) const {
   const auto list =
       players |
       std::views::transform([](const std::string& s) { return QString::fromStdString(s); }) |
       std::ranges::to<QList>();
   setValue("recognition.mediaPlayers.disabled", QJsonArray::fromStringList(list));
+}
+
+void Settings::setSharingEnabled(const bool enabled) const {
+  setValue("sharing.enabled", enabled);
+}
+
+void Settings::setDiscordSharingEnabled(const bool enabled) const {
+  setValue("sharing.discord.enabled", enabled);
+}
+
+void Settings::setDiscordApplicationId(const std::string& applicationId) const {
+  setValue("sharing.discord.applicationId", applicationId);
+}
+
+void Settings::setHttpSharingEnabled(const bool enabled) const {
+  setValue("sharing.http.enabled", enabled);
+}
+
+void Settings::setHttpSharingUrl(const std::string& url) const {
+  setValue("sharing.http.url", url);
+}
+
+void Settings::setHttpSharingFormat(const std::string& format) const {
+  setValue("sharing.http.format", format);
+}
+
+void Settings::setIrcSharingEnabled(const bool enabled) const {
+  setValue("sharing.irc.enabled", enabled);
+}
+
+void Settings::setIrcServer(const std::string& server) const {
+  setValue("sharing.irc.server", server);
+}
+
+void Settings::setIrcPort(const int port) const {
+  setValue("sharing.irc.port", std::clamp(port, 1, 65535));
+}
+
+void Settings::setIrcNickname(const std::string& nickname) const {
+  setValue("sharing.irc.nickname", nickname);
+}
+
+void Settings::setIrcChannel(const std::string& channel) const {
+  setValue("sharing.irc.channel", channel);
+}
+
+void Settings::setIrcUseAction(const bool enabled) const {
+  setValue("sharing.irc.useAction", enabled);
+}
+
+void Settings::setIrcFormat(const std::string& format) const {
+  setValue("sharing.irc.format", format);
 }
 
 void Settings::setProxyHost(const std::string& host) const {

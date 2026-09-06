@@ -39,6 +39,7 @@ public:
 
   void reset();
   void setPlaying(track::Episode episode);
+  void setDisplayEnabled(const bool enabled);
 
 private:
   void refresh();
@@ -50,6 +51,7 @@ private:
 
   std::optional<Anime> m_anime;
   std::optional<track::Episode> m_episode;
+  bool m_displayEnabled = false;
 };
 
 }  // namespace gui

@@ -19,6 +19,8 @@
 #include "recognition.hpp"
 
 #include <QFileInfo>
+#include <QRegularExpression>
+#include <QUrl>
 #include <algorithm>
 #include <anitomy.hpp>
 #include <ranges>
@@ -30,6 +32,7 @@
 #include "track/recognition_normalize.hpp"
 #include "track/recognition_path.hpp"
 #include "track/recognition_validate.hpp"
+#include "track/stream.hpp"
 
 namespace track::recognition {
 
@@ -40,6 +43,23 @@ Episode parse(std::string_view input, const anitomy::Options options) {
   episode.setElements(elements);
 
   return episode;
+}
+
+Episode parseRemote(const std::string_view url, const std::string_view title) {
+  const auto urlString = QString::fromUtf8(url.data(), static_cast<qsizetype>(url.size()));
+  const auto titleString = QString::fromUtf8(title.data(), static_cast<qsizetype>(title.size()));
+  auto source = stream::normalizeTitle(urlString, titleString);
+
+  // A few MPRIS adapters omit xesam:title. The decoded URL path is a useful
+  // fallback for providers that put the episode title in their route.
+  if (source.isEmpty()) {
+    const QUrl remoteUrl{urlString};
+    source = remoteUrl.path(QUrl::FullyDecoded);
+    source.replace(QRegularExpression(QStringLiteral(R"([/_-]+)")), " ");
+    source = source.trimmed();
+  }
+
+  return parse(source.toStdString());
 }
 
 Episode parseFileInfo(const QFileInfo& info, const anitomy::Options options) {

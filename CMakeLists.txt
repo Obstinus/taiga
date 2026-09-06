@@ -29,5 +29,29 @@ endif()
 
 include(TaigaConfig)
 
+# utf8proc is linked statically into Taiga. Do not copy its development files
+# into the application package as a side effect of its vendored install rules.
+set(UTF8PROC_INSTALL OFF CACHE BOOL "Install utf8proc development files" FORCE)
+
 add_subdirectory(deps)
 add_subdirectory(src)
+
+set(CPACK_PACKAGE_NAME "taiga")
+set(CPACK_PACKAGE_VENDOR "Taiga contributors")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Anime library and progress tracker")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_CONTACT "taiga@erengy.com")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "Taiga")
+set(CPACK_PACKAGE_DIRECTORY "${CMAKE_BINARY_DIR}/packages")
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(CPACK_GENERATOR "TGZ;DEB")
+	set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Taiga contributors")
+	set(CPACK_DEBIAN_PACKAGE_SECTION "video")
+	set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "${CMAKE_PROJECT_HOMEPAGE_URL}")
+	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+endif()
+
+include(CPack)

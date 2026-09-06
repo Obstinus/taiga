@@ -88,6 +88,15 @@ void NowPlayingWidget::reset() {
   refresh();
 }
 
+void NowPlayingWidget::setDisplayEnabled(const bool enabled) {
+  m_displayEnabled = enabled;
+  if (!m_displayEnabled || !m_episode) {
+    hide();
+  } else {
+    show();
+  }
+}
+
 void NowPlayingWidget::setPlaying(track::Episode episode) {
   m_episode = episode;
 
@@ -98,7 +107,7 @@ void NowPlayingWidget::setPlaying(track::Episode episode) {
   }
 
   refresh();
-  show();
+  if (m_displayEnabled) show();
 }
 
 void NowPlayingWidget::refresh() {
@@ -115,7 +124,8 @@ void NowPlayingWidget::refresh() {
   }
   if (m_episode->contains(anitomy::ElementKind::EpisodeTitle)) {
     const auto episodeTitle = m_episode->element(anitomy::ElementKind::EpisodeTitle);
-    lines += u"<b>Episode title:</b> %1"_s.arg(QString::fromStdString(episodeTitle).toHtmlEscaped());
+    lines +=
+        u"<b>Episode title:</b> %1"_s.arg(QString::fromStdString(episodeTitle).toHtmlEscaped());
   }
   if (m_episode->contains(anitomy::ElementKind::ReleaseGroup)) {
     const auto releaseGroup = m_episode->element(anitomy::ElementKind::ReleaseGroup);
@@ -131,20 +141,21 @@ void NowPlayingWidget::refresh() {
   const auto episodeNumber = m_episode->element(anitomy::ElementKind::Episode, "1");
   const auto episodeCount = formatNumber(m_anime ? m_anime->episode_count : 0, "?");
 
-  m_mainLabel->setText(u"Watching <a href=\"#\" style=\"%3\">%1</a> – Episode %2"_s
-                           .arg(QString::fromStdString(title).toHtmlEscaped())
-                           .arg(u"%1/%2"_s.arg(QString::fromStdString(episodeNumber).toHtmlEscaped()).arg(episodeCount))
-                           .arg("font-weight: 600; text-decoration: none;"));
+  m_mainLabel->setText(
+      u"Watching <a href=\"#\" style=\"%3\">%1</a> – Episode %2"_s
+          .arg(QString::fromStdString(title).toHtmlEscaped())
+          .arg(u"%1/%2"_s.arg(QString::fromStdString(episodeNumber).toHtmlEscaped())
+                   .arg(episodeCount))
+          .arg("font-weight: 600; text-decoration: none;"));
 
   const auto media = track::media::detection()->getCurrentMedia();
   const auto position = media ? media->position : std::chrono::milliseconds{0};
   const auto entry = anime::db.entry(m_episode->animeId());
   bool episodeNumberOk = false;
   const auto episodeNumberValue =
-      QString::fromStdString(m_episode->element(anitomy::ElementKind::Episode)).toInt(
-          &episodeNumberOk);
-  const bool updated = entry && episodeNumberOk &&
-                       entry->watched_episodes >= episodeNumberValue;
+      QString::fromStdString(m_episode->element(anitomy::ElementKind::Episode))
+          .toInt(&episodeNumberOk);
+  const bool updated = entry && episodeNumberOk && entry->watched_episodes >= episodeNumberValue;
 
   if (updated) {
     m_timerLabel->setText("List updated");
@@ -154,10 +165,9 @@ void NowPlayingWidget::refresh() {
     const auto remaining = std::max<std::chrono::milliseconds>(
         std::chrono::milliseconds{0}, track::media::listUpdatePosition(media->duration) - position);
     const auto seconds = std::chrono::ceil<std::chrono::seconds>(remaining).count();
-    m_timerLabel->setText(
-        u"List update in <b style=\"font-weight: 600;\">%1:%2</b>"_s
-            .arg(seconds / 60, 2, 10, QChar('0'))
-            .arg(seconds % 60, 2, 10, QChar('0')));
+    m_timerLabel->setText(u"List update in <b style=\"font-weight: 600;\">%1:%2</b>"_s
+                              .arg(seconds / 60, 2, 10, QChar('0'))
+                              .arg(seconds % 60, 2, 10, QChar('0')));
   }
 }
 

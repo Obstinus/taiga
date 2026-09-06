@@ -18,11 +18,17 @@
 
 #include "main_window.hpp"
 
+#include <QDateTime>
 #include <QDesktopServices>
+#include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QPointer>
+#include <QRandomGenerator>
 #include <QtWidgets>
 #include <algorithm>
+#include <optional>
+#include <vector>
 
 #include "base/string.hpp"
 #include "gui/common/spinner_widget.hpp"
@@ -43,6 +49,7 @@
 #include "gui/utils/widgets.hpp"
 #include "media/anime_db.hpp"
 #include "media/anime_list.hpp"
+#include "media/anime_list_export.hpp"
 #include "media/anime_utils.hpp"
 #include "sync/anilist/anilist.hpp"
 #include "sync/kitsu/kitsu.hpp"
@@ -53,6 +60,10 @@
 #include "taiga/application.hpp"
 #include "taiga/session.hpp"
 #include "taiga/settings.hpp"
+#include "track/media.hpp"
+#include "track/play.hpp"
+#include "track/scanner.hpp"
+#include "track/sharing.hpp"
 #include "ui_main_window.h"
 
 #ifdef Q_OS_WINDOWS
@@ -60,6 +71,41 @@
 #endif
 
 namespace gui {
+
+namespace {
+
+template <typename ExportFunction>
+void exportList(MainWindow* window, const QString& extension, const QString& filter,
+                ExportFunction function) {
+  const auto timestamp = QDateTime::currentDateTime().toSecsSinceEpoch();
+  const auto suggested = u"animelist_%1.%2"_s.arg(timestamp).arg(extension);
+  auto path =
+      QFileDialog::getSaveFileName(window, QObject::tr("Export anime list"), suggested, filter);
+  if (path.isEmpty()) return;
+
+  if (QFileInfo{path}.suffix().isEmpty()) path += u".%1"_s.arg(extension);
+
+  const auto success = function(path.toStdString());
+  window->statusBarController()->showMessage({
+      .source = StatusBarController::Source::Export,
+      .text = success ? QObject::tr("Exported list to %1.").arg(path)
+                      : QObject::tr("Could not export list to %1.").arg(path),
+      .spin = false,
+  });
+}
+
+std::optional<int> selectedAnimeId(const MainWindow* window) {
+  if (window->ui()->stackedWidget->currentWidget() == window->ui()->libraryPage) {
+    if (const auto* library = window->findChild<LibraryWidget*>()) {
+      if (const auto id = library->currentAnimeId()) return id;
+    }
+  }
+
+  if (const auto* list = window->findChild<ListWidget*>()) return list->currentAnimeId();
+  return std::nullopt;
+}
+
+}  // namespace
 
 MainWindow::MainWindow() : QMainWindow(), ui_(new Ui::MainWindow) {
   ui_->setupUi(this);
@@ -128,10 +174,42 @@ void MainWindow::initActions() {
   connect(ui_->actionProfile, &QAction::triggered, this, &MainWindow::profile);
   connect(ui_->actionDisplayWindow, &QAction::triggered, this, &MainWindow::displayWindow);
   connect(ui_->actionSynchronize, &QAction::triggered, this, &MainWindow::synchronize);
+  connect(ui_->actionScanAvailableEpisodes, &QAction::triggered, this,
+          &MainWindow::scanAvailableEpisodes);
+  connect(ui_->actionPlayNextEpisode, &QAction::triggered, this, &MainWindow::playNextEpisode);
+  connect(ui_->actionPlayRandomAnime, &QAction::triggered, this, &MainWindow::playRandomAnime);
+  connect(ui_->actionExportListAsMarkdown, &QAction::triggered, this,
+          &MainWindow::exportListAsMarkdown);
+  connect(ui_->actionExportListAsMyAnimeListXML, &QAction::triggered, this,
+          &MainWindow::exportListAsMyAnimeListXml);
+
+  ui_->actionToggleDetection->setChecked(taiga::settings.detectionEnabled());
+  connect(ui_->actionToggleDetection, &QAction::toggled, this, [](const bool checked) {
+    taiga::settings.setDetectionEnabled(checked);
+    track::media::detection()->setEnabled(checked);
+  });
+
+  ui_->actionToggleSharing->setChecked(taiga::settings.sharingEnabled());
+  connect(ui_->actionToggleSharing, &QAction::toggled, this, [](const bool checked) {
+    taiga::settings.setSharingEnabled(checked);
+    if (!checked) {
+      track::sharing::clear();
+    } else if (const auto episode = track::media::detection()->getCurrentEpisode()) {
+      track::sharing::update(*episode);
+    }
+  });
 
   ui_->actionToggleSynchronization->setChecked(taiga::settings.syncEnabled());
   connect(ui_->actionToggleSynchronization, &QAction::toggled, this,
           [](const bool checked) { taiga::settings.setSyncEnabled(checked); });
+
+  ui_->actionToggleStatusbar->setChecked(ui_->statusbar->isVisible());
+  connect(ui_->actionToggleStatusbar, &QAction::toggled, this,
+          [this](const bool checked) { statusBar()->setVisible(checked); });
+
+  connect(ui_->actionToggleNowPlaying, &QAction::toggled, this, [this](const bool checked) {
+    if (m_nowPlayingWidget) m_nowPlayingWidget->setDisplayEnabled(checked);
+  });
 }
 
 void MainWindow::initIcons() {
@@ -177,6 +255,7 @@ void MainWindow::initNowPlaying() {
   m_nowPlayingWidget = new NowPlayingWidget(ui_->centralWidget);
 
   ui_->centralWidget->layout()->addWidget(m_nowPlayingWidget);
+  m_nowPlayingWidget->setDisplayEnabled(ui_->actionToggleNowPlaying->isChecked());
   m_nowPlayingWidget->hide();
 }
 
@@ -283,8 +362,7 @@ void MainWindow::initPage(MainWindowPage page) {
 
       connect(authenticate, &QPushButton::clicked, this, &MainWindow::authenticateFromProfile);
       connect(syncButton, &QPushButton::clicked, this, &MainWindow::synchronize);
-      connect(settingsButton, &QPushButton::clicked, this,
-              [this] { SettingsDialog::show(this); });
+      connect(settingsButton, &QPushButton::clicked, this, [this] { SettingsDialog::show(this); });
       init_page(ui_->profilePage, profile);
       break;
     }
@@ -306,23 +384,25 @@ void MainWindow::refreshPage(const MainWindowPage page) {
   }
 }
 
+void MainWindow::refreshLibrary() {
+  if (m_libraryWidget) m_libraryWidget->reloadFolders();
+}
+
 void MainWindow::updateHomePage() {
   if (!m_homeSummary) return;
 
-  m_homeSummary->setText(
-      tr("%1 anime in your list · %2 configured library folder(s)")
-          .arg(anime::db.entries().size())
-          .arg(taiga::settings.libraryFolders().size()));
+  m_homeSummary->setText(tr("%1 anime in your list · %2 configured library folder(s)")
+                             .arg(anime::db.entries().size())
+                             .arg(taiga::settings.libraryFolders().size()));
 }
 
 void MainWindow::updateProfilePage() {
   if (!m_profileSummary) return;
 
   const auto service = sync::currentServiceId();
-  const auto username =
-      taiga::accounts.serviceUsername(sync::serviceSlug(service).toStdString());
-  const auto accountName = username.empty() ? tr("Not configured")
-                                             : QString::fromStdString(username);
+  const auto username = taiga::accounts.serviceUsername(sync::serviceSlug(service).toStdString());
+  const auto accountName =
+      username.empty() ? tr("Not configured") : QString::fromStdString(username);
 
   m_profileSummary->setText(
       tr("%1\nAccount: %2\nStatus: %3")
@@ -367,8 +447,7 @@ void MainWindow::initStatusbar() {
 
   connect(&taiga::accounts, &taiga::Accounts::authenticationChanged, this,
           [this](const bool) { updateProfilePage(); });
-  connect(&anime::db, &anime::Database::itemUpdated, this,
-          [this](const int) { updateHomePage(); });
+  connect(&anime::db, &anime::Database::itemUpdated, this, [this](const int) { updateHomePage(); });
   connect(&anime::db, &anime::Database::entryUpdated, this,
           [this](const int) { updateHomePage(); });
   connect(&anime::db, &anime::Database::itemDeleted, this,
@@ -483,6 +562,8 @@ void MainWindow::initToolbar() {
       menu->addAction(ui_->actionToggleDetection);
       menu->addAction(ui_->actionToggleSharing);
       menu->addAction(ui_->actionToggleSynchronization);
+      menu->addAction(ui_->actionToggleNowPlaying);
+      menu->addAction(ui_->actionToggleStatusbar);
       menu->addSeparator();
       menu->addMenu(ui_->menuHelp);
       menu->addSeparator();
@@ -542,9 +623,141 @@ void MainWindow::addNewFolder() {
 
   const auto directory = QFileDialog::getExistingDirectory(this, tr("Add New Folder"), "", options);
 
-  if (!directory.isEmpty()) {
-    QMessageBox::information(this, "New Folder", directory);
+  if (directory.isEmpty()) return;
+
+  const auto path = QDir::cleanPath(QFileInfo{directory}.absoluteFilePath());
+  auto folders = taiga::settings.libraryFolders();
+  const auto exists = std::ranges::any_of(folders, [&path](const auto& folder) {
+    return QDir::cleanPath(QString::fromStdString(folder)) == path;
+  });
+
+  if (exists) {
+    statusBarController()->showMessage({
+        .source = StatusBarController::Source::Library,
+        .text = tr("Library folder is already configured: %1").arg(path),
+        .spin = false,
+    });
+    return;
   }
+
+  folders.push_back(path.toStdString());
+  taiga::settings.setLibraryFolders(std::move(folders));
+  refreshLibrary();
+  statusBarController()->showMessage({
+      .source = StatusBarController::Source::Library,
+      .text = tr("Added library folder: %1").arg(path),
+      .spin = false,
+  });
+}
+
+void MainWindow::scanAvailableEpisodes() {
+  const auto folders = taiga::settings.libraryFolders();
+  if (folders.empty()) {
+    QMessageBox::information(this, tr("Scan library"),
+                             tr("Add at least one library folder before scanning."));
+    SettingsDialog::show(this);
+    return;
+  }
+
+  statusBarController()->showMessage({
+      .source = StatusBarController::Source::Library,
+      .text = tr("Scanning available episodes..."),
+  });
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+  const auto result = track::scanLibrary(folders);
+  QApplication::restoreOverrideCursor();
+  refreshLibrary();
+
+  statusBarController()->showMessage({
+      .source = StatusBarController::Source::Library,
+      .text = tr("Scanned %1 folder(s): %2 video file(s), %3 recognized episode(s).")
+                  .arg(result.folders)
+                  .arg(result.files)
+                  .arg(result.recognized),
+      .spin = false,
+  });
+}
+
+void MainWindow::exportListAsMarkdown() {
+  exportList(this, "md", tr("Markdown files (*.md);;All files (*)"),
+             &anime::list::exportAsMarkdown);
+}
+
+void MainWindow::exportListAsMyAnimeListXml() {
+  exportList(this, "xml", tr("XML files (*.xml);;All files (*)"), &anime::list::exportAsXml);
+}
+
+void MainWindow::playNextEpisode() {
+  auto animeId = selectedAnimeId(this);
+  if (!animeId) {
+    for (const auto& entry : anime::db.entries()) {
+      if (entry.status == anime::list::Status::Watching && anime::db.item(entry.anime_id)) {
+        animeId = entry.anime_id;
+        break;
+      }
+    }
+  }
+
+  if (!animeId) {
+    statusBarController()->showMessage({
+        .source = StatusBarController::Source::Playback,
+        .text = tr("Select an anime or add one to your list before playing."),
+        .spin = false,
+    });
+    return;
+  }
+
+  const auto number = track::nextEpisodeNumber(*animeId);
+  const auto item = anime::db.item(*animeId);
+  if (!number || !item || !track::playEpisode(*animeId, *number)) {
+    const auto message = item ? tr("Could not find episode #%1 (%2).")
+                                    .arg(number.value_or(0))
+                                    .arg(anime::preferredTitle(*item))
+                              : tr("Could not find the selected anime episode.");
+    statusBarController()->showMessage({
+        .source = StatusBarController::Source::Playback,
+        .text = message,
+        .spin = false,
+    });
+    return;
+  }
+
+  statusBarController()->clearMessage(StatusBarController::Source::Playback);
+}
+
+void MainWindow::playRandomAnime() {
+  std::vector<int> candidates;
+  for (const auto& entry : anime::db.entries()) {
+    if (anime::db.item(entry.anime_id) && entry.status != anime::list::Status::NotInList)
+      candidates.push_back(entry.anime_id);
+  }
+
+  if (candidates.empty()) {
+    statusBarController()->showMessage({
+        .source = StatusBarController::Source::Playback,
+        .text = tr("Add an anime to your list before playing a random episode."),
+        .spin = false,
+    });
+    return;
+  }
+
+  const auto animeId =
+      candidates.at(QRandomGenerator::global()->bounded(static_cast<int>(candidates.size())));
+  const auto number = track::randomEpisodeNumber(animeId);
+  const auto item = anime::db.item(animeId);
+  if (!number || !item || !track::playEpisode(animeId, *number)) {
+    const auto message =
+        item ? tr("Could not find a playable episode for %1.").arg(anime::preferredTitle(*item))
+             : tr("Could not find a playable anime.");
+    statusBarController()->showMessage({
+        .source = StatusBarController::Source::Playback,
+        .text = message,
+        .spin = false,
+    });
+    return;
+  }
+
+  statusBarController()->clearMessage(StatusBarController::Source::Playback);
 }
 
 void MainWindow::navigateTo(MainWindowPage page) {

@@ -33,7 +33,21 @@ public:
   void init() const;
 
   Qt::ColorScheme appColorScheme() const;
+  bool detectionEnabled() const;
   std::vector<std::string> disabledMediaPlayers() const;
+  bool sharingEnabled() const;
+  bool discordSharingEnabled() const;
+  std::string discordApplicationId() const;
+  bool httpSharingEnabled() const;
+  std::string httpSharingUrl() const;
+  std::string httpSharingFormat() const;
+  bool ircSharingEnabled() const;
+  std::string ircServer() const;
+  int ircPort() const;
+  std::string ircNickname() const;
+  std::string ircChannel() const;
+  bool ircUseAction() const;
+  std::string ircFormat() const;
   std::string proxyHost() const;
   std::string proxyUsername() const;
   std::string proxyPassword() const;
@@ -44,7 +58,21 @@ public:
   anime::TitleLanguage titleLanguage() const;
 
   void setAppColorScheme(const Qt::ColorScheme scheme) const;
+  void setDetectionEnabled(const bool enabled) const;
   void setDisabledMediaPlayers(std::vector<std::string> players) const;
+  void setSharingEnabled(const bool enabled) const;
+  void setDiscordSharingEnabled(const bool enabled) const;
+  void setDiscordApplicationId(const std::string& applicationId) const;
+  void setHttpSharingEnabled(const bool enabled) const;
+  void setHttpSharingUrl(const std::string& url) const;
+  void setHttpSharingFormat(const std::string& format) const;
+  void setIrcSharingEnabled(const bool enabled) const;
+  void setIrcServer(const std::string& server) const;
+  void setIrcPort(const int port) const;
+  void setIrcNickname(const std::string& nickname) const;
+  void setIrcChannel(const std::string& channel) const;
+  void setIrcUseAction(const bool enabled) const;
+  void setIrcFormat(const std::string& format) const;
   void setProxyHost(const std::string& host) const;
   void setProxyUsername(const std::string& username) const;
   void setProxyPassword(const std::string& password) const;

@@ -65,6 +65,19 @@ void ListViewBase::filterByText(const QString& text) {
   m_proxyModel->setTextFilter(text);
 }
 
+std::optional<int> ListViewBase::currentAnimeId() const {
+  auto index = m_view->currentIndex();
+  if (!index.isValid()) {
+    const auto selected = m_view->selectionModel()->selectedRows();
+    if (selected.isEmpty()) return std::nullopt;
+    index = selected.front();
+  }
+
+  const auto sourceIndex = m_proxyModel->mapToSource(index);
+  if (const auto item = m_model->getAnime(sourceIndex)) return item->id;
+  return std::nullopt;
+}
+
 void ListViewBase::openAnimePage(const QModelIndex& index) {
   const auto mappedIndex = m_proxyModel->mapToSource(index);
   const auto anime = m_model->getAnime(mappedIndex);

@@ -23,6 +23,7 @@
 #include <optional>
 #include <ranges>
 
+#include "media/anime.hpp"
 #include "track/episode.hpp"
 #include "track/recognition.hpp"
 
@@ -80,6 +81,30 @@ std::optional<QString> findFolder(const QString& path, const int anime_id) {
   }
 
   return std::nullopt;
+}
+
+LibraryScanResult scanLibrary(const std::vector<std::string>& folders) {
+  LibraryScanResult result;
+
+  for (const auto& folder : folders) {
+    const QString root = QString::fromStdString(folder);
+    if (!QDir{root}.exists()) continue;
+
+    ++result.folders;
+    QDirIterator it{root, QDir::Files, QDirIterator::Subdirectories};
+    while (it.hasNext()) {
+      const auto info = it.nextFileInfo();
+      if (!info.isFile()) continue;
+
+      auto episode = recognition::parseFileInfo(info);
+      if (!recognition::isVideoFile(episode)) continue;
+
+      ++result.files;
+      if (recognition::identify(episode) != anime::kUnknownId) ++result.recognized;
+    }
+  }
+
+  return result;
 }
 
 }  // namespace track
