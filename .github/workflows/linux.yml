@@ -73,6 +73,7 @@ jobs:
         run: |
           cpack --config build/CPackConfig.cmake -G TGZ
           cpack --config build/CPackConfig.cmake -G DEB
+          rm -rf build/packages/_CPack_Packages
 
       - name: Upload packages
         uses: actions/upload-artifact@v4
@@ -90,16 +91,28 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           echo "Publishing release for tag: $tag"
-          ls -lh build/packages
+
+          packages=()
+          for f in build/packages/*; do
+            [ -f "$f" ] && packages+=("$f")
+          done
+
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "Error: No package files found in build/packages/"
+            exit 1
+          fi
+
+          ls -lh "${packages[@]}"
+
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists. Updating release assets..."
-            gh release upload "$tag" build/packages/* --clobber
+            gh release upload "$tag" "${packages[@]}" --clobber
           else
             echo "Creating release $tag..."
-            gh release create "$tag" build/packages/* \
+            gh release create "$tag" "${packages[@]}" \
               --title "$tag" \
               --generate-notes || {
                 echo "Release creation failed or already exists. Attempting upload..."
-                gh release upload "$tag" build/packages/* --clobber
+                gh release upload "$tag" "${packages[@]}" --clobber
               }
           fi
