@@ -82,6 +82,11 @@ void handleError(sync::Service& service, QRestReply& reply, const QString& messa
     return;
   }
 
+  if (reply.hasError()) {
+    emit service.errorOccurred(reply.errorString());
+    return;
+  }
+
   if (const auto description = parseErrorMessage(reply)) {
     emit service.errorOccurred(*description);
     return;
@@ -92,8 +97,9 @@ void handleError(sync::Service& service, QRestReply& reply, const QString& messa
     return;
   }
 
-  if (reply.hasError()) {
-    emit service.errorOccurred(reply.errorString());
+  if (reply.httpStatus() > 0 && !reply.isHttpStatusSuccess()) {
+    emit service.errorOccurred(u"Server returned HTTP %1."_s.arg(reply.httpStatus()));
+    return;
   }
 }
 

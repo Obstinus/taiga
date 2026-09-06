@@ -19,6 +19,18 @@
 #include "taiga/application.hpp"
 
 int main(int argc, char* argv[]) {
+#ifdef Q_OS_LINUX
+  // Qt's GTK platform theme loads the ATK bridge even when no assistive
+  // technology is in use.  In a session with a stale or unavailable AT-SPI
+  // socket that produces a noisy dbind warning before the application starts.
+  // Respect explicit accessibility configuration and only disable the GTK
+  // bridge for the usual, non-accessible case.
+  if (!qEnvironmentVariableIsSet("NO_AT_BRIDGE") &&
+      !qEnvironmentVariableIsSet("QT_ACCESSIBILITY")) {
+    qputenv("NO_AT_BRIDGE", "1");
+  }
+#endif
+
   taiga::Application app(argc, argv);
   return app.run();
 }

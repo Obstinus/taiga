@@ -25,6 +25,7 @@
 #include <QRestReply>
 #include <QSet>
 #include <ranges>
+#include <utility>
 
 #include "base/string.hpp"
 #include "media/anime_db.hpp"
@@ -38,6 +39,27 @@
 // https://docs.anilist.co/
 
 namespace sync::anilist {
+
+namespace {
+
+void preserveCachedDetails(Anime& item) {
+  const auto* existing = anime::db.item(item.id);
+  if (!existing) return;
+
+  // MediaListCollection intentionally requests only the fields needed by the
+  // list view. Keep details that are fetched by the full Media query instead
+  // of replacing them with empty values in the local database.
+  item.age_rating = existing->age_rating;
+  item.last_modified = existing->last_modified;
+  item.slug = existing->slug;
+  item.synopsis = existing->synopsis;
+  item.trailer_id = existing->trailer_id;
+  item.tags = existing->tags;
+  item.producers = existing->producers;
+  item.studios = existing->studios;
+}
+
+}  // namespace
 
 Service::Service() : sync::Service{ServiceId::AniList} {
   api_.setBaseUrl(QUrl{"https://graphql.anilist.co"});
@@ -176,8 +198,9 @@ void Service::fetchListEntries() {
       for (const auto& entryValue : list.toObject()["entries"].toArray()) {
         const auto entry = entryValue.toObject();
 
-        if (const auto item = parseMedia(entry["media"])) {
-          items.append(*item);
+        if (auto item = parseMedia(entry["media"])) {
+          preserveCachedDetails(*item);
+          items.append(std::move(*item));
         }
         if (const auto listEntry = parseListEntry(entry)) {
           entries.append(*listEntry);

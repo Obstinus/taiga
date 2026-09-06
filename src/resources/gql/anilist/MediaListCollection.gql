@@ -4,7 +4,41 @@ query ($userName: String!) {
       entries {
         ...MediaListFragment
         media {
-          ...MediaFragment
+          # Keep list synchronization lightweight.  Full media details are
+          # fetched by the Media query when they are needed.
+          id
+          idMal
+          title {
+            romaji(stylised: true)
+            english(stylised: true)
+            native(stylised: true)
+          }
+          format
+          status
+          startDate {
+            year
+            month
+            day
+          }
+          endDate {
+            year
+            month
+            day
+          }
+          episodes
+          duration
+          countryOfOrigin
+          coverImage {
+            extraLarge
+          }
+          genres
+          synonyms
+          averageScore
+          popularity
+          nextAiringEpisode {
+            airingAt
+            episode
+          }
         }
       }
     }

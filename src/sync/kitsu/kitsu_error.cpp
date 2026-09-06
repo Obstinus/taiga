@@ -70,6 +70,10 @@ bool isTokenExpired(const QRestReply& reply) {
 }
 
 void handleError(sync::Service& service, QRestReply& reply, const QString& message) {
+  if (reply.hasError()) {
+    handleError(service, reply, std::nullopt, message);
+    return;
+  }
   handleError(service, reply, reply.readJson(), message);
 }
 
@@ -83,6 +87,11 @@ void handleError(sync::Service& service, QRestReply& reply,
     return;
   }
 
+  if (reply.hasError()) {
+    emit service.errorOccurred(reply.errorString());
+    return;
+  }
+
   if (const auto description = parseErrorMessage(json)) {
     emit service.errorOccurred(*description);
     return;
@@ -93,8 +102,9 @@ void handleError(sync::Service& service, QRestReply& reply,
     return;
   }
 
-  if (reply.hasError()) {
-    emit service.errorOccurred(reply.errorString());
+  if (reply.httpStatus() > 0 && !reply.isHttpStatusSuccess()) {
+    emit service.errorOccurred(u"Server returned HTTP %1."_s.arg(reply.httpStatus()));
+    return;
   }
 }
 
