@@ -32,8 +32,8 @@
 
 #define TAIGA_VERSION_MAJOR 2
 #define TAIGA_VERSION_MINOR 0
-#define TAIGA_VERSION_PATCH 0
-#define TAIGA_VERSION_PRE   "alpha"
+#define TAIGA_VERSION_PATCH 1
+#define TAIGA_VERSION_PRE   ""
 #define TAIGA_VERSION_BUILD 0
 
 // Used in taiga.rc

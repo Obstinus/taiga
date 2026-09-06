@@ -35,6 +35,11 @@
     <keyword>library</keyword>
   </keywords>
   <releases>
+    <release version="2.0.1" date="2026-09-06">
+      <description>
+        <p>Release v2.0.1 with automated packaging and GitHub Releases integration.</p>
+      </description>
+    </release>
     <release version="2.0.0" date="2026-09-06">
       <description>
         <p>Initial Linux port packaging and desktop integration.</p>
