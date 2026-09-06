@@ -18,6 +18,8 @@
 
 #include "settings_dialog.hpp"
 
+#include <QComboBox>
+#include <QFormLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -25,6 +27,9 @@
 #include "base/string.hpp"
 #include "gui/main/main_window.hpp"
 #include "gui/utils/theme.hpp"
+#include "sync/service.hpp"
+#include "taiga/accounts.hpp"
+#include "taiga/settings.hpp"
 #include "ui_settings_dialog.h"
 
 #ifdef Q_OS_WINDOWS
@@ -78,6 +83,70 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     add_child(item, "Cache");
   }
 
+  auto accountsLayout = new QVBoxLayout(ui_->accountsPage);
+  accountsLayout->setContentsMargins(0, 0, 0, 0);
+
+  auto accountsDescription =
+      new QLabel(tr("Choose the service used for synchronization and manage its sign-in."),
+                 ui_->accountsPage);
+  accountsDescription->setWordWrap(true);
+  accountsLayout->addWidget(accountsDescription);
+
+  auto accountForm = new QFormLayout;
+  auto serviceBox = new QComboBox(ui_->accountsPage);
+  serviceBox->addItem(sync::serviceName(sync::ServiceId::AniList), "anilist");
+  serviceBox->addItem(sync::serviceName(sync::ServiceId::Kitsu), "kitsu");
+  serviceBox->addItem(sync::serviceName(sync::ServiceId::MyAnimeList), "myanimelist");
+  const auto currentService = QString::fromStdString(taiga::settings.service());
+  const auto currentIndex = serviceBox->findData(currentService);
+  if (currentIndex >= 0) serviceBox->setCurrentIndex(currentIndex);
+  accountForm->addRow(tr("Service:"), serviceBox);
+
+  auto username = new QLabel(ui_->accountsPage);
+  auto status = new QLabel(ui_->accountsPage);
+  accountForm->addRow(tr("Account:"), username);
+  accountForm->addRow(tr("Status:"), status);
+  accountsLayout->addLayout(accountForm);
+
+  auto accountActions = new QHBoxLayout;
+  auto authenticate = new QPushButton(tr("Authenticate"), ui_->accountsPage);
+  auto synchronize = new QPushButton(tr("Synchronize"), ui_->accountsPage);
+  accountActions->addWidget(authenticate);
+  accountActions->addWidget(synchronize);
+  accountActions->addStretch();
+  accountsLayout->addLayout(accountActions);
+  accountsLayout->addStretch();
+
+  const auto refreshAccount = [serviceBox, username, status] {
+    const auto service = sync::serviceIdFromSlug(serviceBox->currentData().toString());
+    const auto serviceSlug = sync::serviceSlug(service).toStdString();
+    const auto name = taiga::accounts.serviceUsername(serviceSlug);
+    username->setText(name.empty() ? QObject::tr("Not configured")
+                                   : QString::fromStdString(name));
+    status->setText(sync::isUserAuthenticated() ? QObject::tr("Authenticated")
+                                                : QObject::tr("Not authenticated"));
+  };
+  refreshAccount();
+
+  connect(serviceBox, qOverload<int>(&QComboBox::currentIndexChanged), this,
+          [serviceBox, refreshAccount](const int) {
+            taiga::settings.setService(serviceBox->currentData().toString().toStdString());
+            refreshAccount();
+          });
+  connect(this, &QDialog::finished, this, [currentService](const int result) {
+    if (result != QDialog::Accepted) {
+      taiga::settings.setService(currentService.toStdString());
+    }
+  });
+  connect(authenticate, &QPushButton::clicked, this, [refreshAccount] {
+    sync::authenticateUser();
+    refreshAccount();
+  });
+  connect(synchronize, &QPushButton::clicked, this, [refreshAccount] {
+    sync::synchronize();
+    refreshAccount();
+  });
+
   ui_->treeWidget->expandAll();
 
   auto torrentsPage = new QWidget(this);
@@ -91,17 +160,32 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   torrentsLayout->addWidget(configure, 0, Qt::AlignLeft);
   torrentsLayout->addStretch();
   ui_->stackedWidget->addWidget(torrentsPage);
+
+  auto unavailablePage = new QWidget(this);
+  auto unavailableLayout = new QVBoxLayout(unavailablePage);
+  auto unavailableLabel =
+      new QLabel(tr("This settings section is not available yet."), unavailablePage);
+  unavailableLabel->setWordWrap(true);
+  unavailableLayout->addWidget(unavailableLabel);
+  unavailableLayout->addStretch();
+  ui_->stackedWidget->addWidget(unavailablePage);
+
   connect(configure, &QPushButton::clicked, this, [this] {
     accept();
     mainWindow()->configureTorrents();
   });
 
   connect(ui_->treeWidget, &QTreeWidget::currentItemChanged, this,
-          [this, torrentsPage](QTreeWidgetItem* current, QTreeWidgetItem*) {
+          [this, torrentsPage, unavailablePage](QTreeWidgetItem* current, QTreeWidgetItem*) {
             if (current) {
               const auto section = current->parent() ? current->parent() : current;
-              ui_->stackedWidget->setCurrentWidget(
-                  section->text(0) == "Torrents" ? torrentsPage : ui_->accountsPage);
+              if (section->text(0) == "Accounts") {
+                ui_->stackedWidget->setCurrentWidget(ui_->accountsPage);
+              } else if (section->text(0) == "Torrents") {
+                ui_->stackedWidget->setCurrentWidget(torrentsPage);
+              } else {
+                ui_->stackedWidget->setCurrentWidget(unavailablePage);
+              }
               auto text = current->text(0);
               if (current->parent()) {
                 text = u"%1 / %2"_s.arg(current->parent()->text(0), text);
