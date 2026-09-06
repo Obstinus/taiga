@@ -28,6 +28,7 @@
 #include "base/string.hpp"
 #include "media/anime.hpp"
 #include "media/anime_list.hpp"
+#include "sync/service.hpp"
 
 namespace sync::myanimelist {
 
@@ -121,6 +122,7 @@ std::optional<anime::Details> parseAnime(const QJsonValue& json) {
 
   anime::Details item{
       .id = id,
+      .ids = {{sync::ServiceId::MyAnimeList, id}},
       .last_modified = QDateTime::currentSecsSinceEpoch(),
       .episode_count = json["num_episodes"].toInt(),
       .episode_length = parseEpisodeLength(json["average_episode_duration"].toInt()),

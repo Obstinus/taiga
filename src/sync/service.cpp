@@ -52,7 +52,10 @@ void Service::logError(const QString& message) {
 }
 
 void Service::onAuthenticationCompleted(bool authenticated) {
-  switch (currentServiceId()) {
+  // Authentication requests are asynchronous. The user may change the active
+  // service while a request is in flight, so use the service that emitted the
+  // signal rather than whichever service happens to be selected now.
+  switch (id_) {
     case ServiceId::MyAnimeList:
       taiga::accounts.setMyanimelistAuthenticated(authenticated);
       break;
@@ -64,7 +67,8 @@ void Service::onAuthenticationCompleted(bool authenticated) {
       break;
   }
 
-  if (authenticated) {
+  // Do not start a synchronization for a service that is no longer active.
+  if (authenticated && currentServiceId() == id_) {
     synchronize();
   }
 }

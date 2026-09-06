@@ -23,7 +23,9 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QSqlResult>
+#include <array>
 #include <format>
+#include <utility>
 
 #include "base/file.hpp"
 #include "base/string.hpp"
@@ -31,6 +33,7 @@
 #include "compat/list.hpp"
 #include "compat/settings.hpp"
 #include "media/anime_utils.hpp"
+#include "sync/service.hpp"
 #include "taiga/accounts.hpp"
 #include "taiga/path.hpp"
 #include "taiga/settings.hpp"
@@ -60,6 +63,7 @@ void Database::init() {
     return;
   }
 
+  migrateSchema();
   readItems();
   readEntries();
   readSettings();
@@ -103,18 +107,26 @@ void Database::updateItems(const QList<Anime>& items) {
   }
 
   db_.transaction();
+  QList<Anime> updatedItems;
   for (const auto& item : items) {
-    bindItemToQuery(item, q);
+    auto updated = item;
+    if (const auto* existing = this->item(item.id)) {
+      for (const auto& [service, id] : existing->ids) {
+        updated.ids.try_emplace(service, id);
+      }
+    }
+    bindItemToQuery(updated, q);
     q.exec();
+    updatedItems.append(std::move(updated));
   }
   db_.commit();
 
   db_.close();
 
-  for (const auto& item : items) {
+  for (const auto& item : updatedItems) {
     items_[item.id] = item;
   }
-  for (const auto& item : items) {
+  for (const auto& item : updatedItems) {
     emit itemUpdated(item.id);
   }
 }
@@ -241,6 +253,21 @@ void Database::createTables() {
   db_.close();
 }
 
+void Database::migrateSchema() {
+  if (!db_.open()) return;
+
+  const auto record = db_.record("anime");
+  const std::array<QString, 3> columns{"mal_id", "kitsu_id", "anilist_id"};
+  for (const auto& column : columns) {
+    if (record.indexOf(column) >= 0) continue;
+
+    QSqlQuery q{db_};
+    q.exec(u"ALTER TABLE anime ADD COLUMN %1 INTEGER DEFAULT 0"_s.arg(column));
+  }
+
+  db_.close();
+}
+
 QString Database::currentVersion() {
   if (!db_.open()) return {};
 
@@ -305,6 +332,15 @@ void Database::readSettings() {
 
 void Database::bindItemToQuery(const Anime& item, QSqlQuery& q) const {
   q.bindValue(":id", item.id);
+  q.bindValue(":mal_id", item.ids.contains(sync::ServiceId::MyAnimeList)
+                             ? item.ids.at(sync::ServiceId::MyAnimeList)
+                             : 0);
+  q.bindValue(":kitsu_id", item.ids.contains(sync::ServiceId::Kitsu)
+                               ? item.ids.at(sync::ServiceId::Kitsu)
+                               : 0);
+  q.bindValue(":anilist_id", item.ids.contains(sync::ServiceId::AniList)
+                                 ? item.ids.at(sync::ServiceId::AniList)
+                                 : 0);
   q.bindValue(":title", QString::fromStdString(item.titles.romaji));
   q.bindValue(":english", QString::fromStdString(item.titles.english));
   q.bindValue(":japanese", QString::fromStdString(item.titles.japanese));
@@ -354,8 +390,9 @@ void Database::bindSettingsToQuery(const Settings& settings, QSqlQuery& q) const
 }
 
 Anime Database::itemFromQuery(const QSqlQuery& q) const {
-  return {
+  Anime item{
       .id = q.value("id").toInt(),
+      .ids = {},
       .last_modified = q.value("modified").toInt(),
       .episode_count = q.value("episode_count").toInt(),
       .episode_length = q.value("episode_length").toInt(),
@@ -382,6 +419,21 @@ Anime Database::itemFromQuery(const QSqlQuery& q) const {
       .last_aired_episode = q.value("last_aired_episode").toInt(),
       .next_episode_time = q.value("next_episode_time").toInt(),
   };
+
+  const auto addId = [&item, &q](const sync::ServiceId service, const char* column) {
+    const int id = q.value(column).toInt();
+    if (id > 0) item.ids.emplace(service, id);
+  };
+  addId(sync::ServiceId::MyAnimeList, "mal_id");
+  addId(sync::ServiceId::Kitsu, "kitsu_id");
+  addId(sync::ServiceId::AniList, "anilist_id");
+
+  const auto service = sync::currentServiceId();
+  if (service != sync::ServiceId::Unknown && item.id != anime::kUnknownId &&
+      !item.ids.contains(service)) {
+    item.ids[service] = item.id;
+  }
+  return item;
 }
 
 ListEntry Database::entryFromQuery(const QSqlQuery& q) const {

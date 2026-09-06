@@ -19,11 +19,17 @@
 #include "library_menu.hpp"
 
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QInputDialog>
+#include <QMessageBox>
 #include <QUrl>
 
 #include "gui/media/media_dialog.hpp"
 #include "gui/media/media_menu.hpp"
 #include "gui/utils/theme.hpp"
+#include "gui/utils/widgets.hpp"
 #include "media/anime_db.hpp"
 
 namespace gui {
@@ -54,11 +60,49 @@ void LibraryMenu::open() const {
 }
 
 void LibraryMenu::remove() const {
-  // @TODO
+  const QFileInfo info{m_path};
+  if (!info.exists()) return;
+
+  const auto name = info.fileName();
+  if (!confirm(parentWidget(), tr("Move this item to the Trash?"), name, tr("Move to Trash"))) {
+    return;
+  }
+
+  if (!QFile::moveToTrash(m_path)) {
+    QMessageBox::critical(parentWidget(), tr("Delete failed"),
+                          tr("Taiga could not move %1 to the Trash.").arg(name));
+  }
 }
 
 void LibraryMenu::rename() const {
-  // @TODO
+  const QFileInfo info{m_path};
+  if (!info.exists()) return;
+
+  bool accepted = false;
+  const auto name = QInputDialog::getText(parentWidget(), tr("Rename"), tr("New name:"),
+                                          QLineEdit::Normal, info.fileName(), &accepted);
+  if (!accepted) return;
+
+  const auto newName = name.trimmed();
+  if (newName.isEmpty() || newName == info.fileName() || newName.contains('/') ||
+      newName.contains('\\')) {
+    if (newName.isEmpty() || newName.contains('/') || newName.contains('\\')) {
+      QMessageBox::warning(parentWidget(), tr("Rename failed"), tr("Enter a valid file name."));
+    }
+    return;
+  }
+
+  const auto newPath = info.dir().filePath(newName);
+  if (QFileInfo::exists(newPath)) {
+    QMessageBox::warning(parentWidget(), tr("Rename failed"),
+                         tr("An item named %1 already exists.").arg(newName));
+    return;
+  }
+
+  if (!QFile::rename(m_path, newPath)) {
+    QMessageBox::critical(parentWidget(), tr("Rename failed"),
+                          tr("Taiga could not rename %1.").arg(info.fileName()));
+  }
 }
 
 void LibraryMenu::viewDetails() const {

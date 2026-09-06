@@ -126,6 +126,9 @@ QString fromListStatus(const anime::list::Status value) {
 ////////////////////////////////////////////////////////////////////////////////
 
 std::optional<anime::Details> parseAnime(const QJsonValue& data, const QJsonArray& included) {
+  const auto resourceType = data["type"].toString();
+  if (!resourceType.isEmpty() && resourceType != "anime") return std::nullopt;
+
   const int id = data["id"].toVariant().toInt();
 
   if (!id) return std::nullopt;
@@ -135,6 +138,7 @@ std::optional<anime::Details> parseAnime(const QJsonValue& data, const QJsonArra
 
   anime::Details item{
       .id = id,
+      .ids = {{sync::ServiceId::Kitsu, id}},
       .last_modified = QDateTime::currentSecsSinceEpoch(),
       .episode_count = attributes["episodeCount"].toInt(),
       .episode_length = attributes["episodeLength"].toInt(),
@@ -169,7 +173,33 @@ std::optional<anime::Details> parseAnime(const QJsonValue& data, const QJsonArra
   for (const auto& value : included) {
     const auto resource = value.toObject();
     const auto type = resource["type"].toString();
-    if (type == "categories") {
+    if (type == "mappings") {
+      const auto mappingItem = resource["relationships"]["item"]["data"]["id"];
+      QString mappingItemId;
+      if (mappingItem.isString()) {
+        mappingItemId = mappingItem.toString();
+      } else if (mappingItem.isDouble()) {
+        mappingItemId = QString::number(mappingItem.toInt());
+      }
+      if (!mappingItemId.isEmpty() && mappingItemId != QString::number(id)) continue;
+
+      const auto attributes = resource["attributes"].toObject();
+      const auto site = attributes["externalSite"].toString();
+      bool ok = false;
+      const auto externalValue = attributes["externalId"];
+      int externalId = externalValue.toString().toInt(&ok);
+      if (!ok && externalValue.isDouble()) {
+        externalId = externalValue.toInt();
+        ok = true;
+      }
+      if (!ok || externalId <= 0) continue;
+
+      if (site.compare("myanimelist/anime", Qt::CaseInsensitive) == 0) {
+        item.ids.try_emplace(sync::ServiceId::MyAnimeList, externalId);
+      } else if (site.compare("anilist/anime", Qt::CaseInsensitive) == 0) {
+        item.ids.try_emplace(sync::ServiceId::AniList, externalId);
+      }
+    } else if (type == "categories") {
       item.genres.push_back(resource["attributes"]["title"].toString().toStdString());
     } else if (type == "producers") {
       item.producers.push_back(resource["attributes"]["name"].toString().toStdString());

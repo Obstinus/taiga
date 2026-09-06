@@ -18,10 +18,12 @@
 
 #include "media_player.hpp"
 
+#include <QDir>
 #include <algorithm>
 
 #include "base/file.hpp"
 #include "base/string.hpp"
+#include "taiga/path.hpp"
 #include "taiga/settings.hpp"
 
 namespace track::media {
@@ -39,22 +41,28 @@ bool isDisabled(const Player& player) {
 }  // namespace
 
 bool parsePlayersData(std::vector<Player>& players) {
+  const auto overridePath = QDir(QString::fromStdString(taiga::get_data_path()))
+                                .filePath(QStringLiteral("players.anisthesia"));
+  const auto overrideFile = base::readFile(overridePath);
+  if (!overrideFile.isEmpty()) {
+    players.clear();
+    if (anisthesia::ParsePlayersData(overrideFile.toStdString(), players)) return true;
+  }
+
   const auto file = base::readFile(":/players.anisthesia");
 
   if (file.isEmpty()) {
     return false;
   }
 
-  // @TODO: Allow user to override via file in data directory
+  players.clear();
   return anisthesia::ParsePlayersData(file.toStdString(), players);
 }
 
 std::vector<Player> getEnabledPlayers(const std::vector<Player>& players) {
   std::vector<Player> enabledPlayers;
 
-  for (const auto player : players) {
-    // @TODO: Enable web browser detection
-    if (player.type == anisthesia::PlayerType::WebBrowser) continue;
+  for (const auto& player : players) {
     if (isDisabled(player)) continue;
 
     enabledPlayers.emplace_back(player);

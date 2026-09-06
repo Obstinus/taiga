@@ -71,10 +71,11 @@ Service* Service::instance() {
 
 void Service::fetchAnime(const int id) {
   const QUrlQuery query{{
-      {"include", "categories,animeProductions,animeProductions.producer"},
+      {"include", "categories,animeProductions,animeProductions.producer,mappings"},
       {"fields[anime]", animeFields()},
       {"fields[animeProductions]", "producer"},
       {"fields[categories]", "title"},
+      {"fields[mappings]", "externalSite,externalId"},
       {"fields[producers]", "name"},
   }};
 
@@ -120,11 +121,12 @@ void Service::fetchListEntries(const int offset, QSet<int> fetchedIds) {
   const QUrlQuery query{{
       {"filter[user_id]", QString::fromStdString(taiga::accounts.kitsuUserId())},
       {"filter[kind]", "anime"},
-      {"include", "anime"},
+      {"include", "anime,anime.mappings"},
       {"page[offset]", QString::number(offset)},
       {"page[limit]", QString::number(kLibraryPageLimit)},
       {"fields[anime]", animeFields(true)},
       {"fields[libraryEntries]", libraryEntryFields()},
+      {"fields[mappings]", "externalSite,externalId"},
   }};
 
   const auto callback = [this, offset, fetchedIds](QRestReply& reply) mutable {
@@ -147,7 +149,7 @@ void Service::fetchListEntries(const int offset, QSet<int> fetchedIds) {
 
     QList<Anime> items;
     for (const auto& value : root["included"].toArray()) {
-      if (const auto item = parseAnime(value)) {
+      if (const auto item = parseAnime(value, root["included"].toArray())) {
         items.append(*item);
       }
     }
@@ -199,6 +201,8 @@ void Service::search(const SearchParams& params, const int offset) {
   query.addQueryItem(u"page[offset]"_s, QString::number(offset));
   query.addQueryItem(u"page[limit]"_s, QString::number(kSearchPageLimit));
   query.addQueryItem(u"fields[anime]"_s, animeFields());
+  query.addQueryItem(u"include"_s, u"mappings"_s);
+  query.addQueryItem(u"fields[mappings]"_s, u"externalSite,externalId"_s);
 
   const auto callback = [this, params, offset](QRestReply& reply) {
     if (isError(reply)) {
@@ -219,7 +223,7 @@ void Service::search(const SearchParams& params, const int offset) {
 
     QList<int> ids;
     for (const auto& value : root["data"].toArray()) {
-      if (const auto item = parseAnime(value)) {
+      if (const auto item = parseAnime(value, root["included"].toArray())) {
         anime::db.updateItem(*item);
         ids.append(item->id);
       }

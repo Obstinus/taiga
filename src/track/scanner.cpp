@@ -51,9 +51,12 @@ std::optional<QString> findEpisode(const QString& path, const int anime_id,
 
     if (!recognition::isVideoFile(episode)) continue;
 
-    if (!containsEpisodeNumber(episode, episode_number)) continue;
-
     if (track::recognition::identify(episode) != anime_id) continue;
+
+    // identify() may apply an anime-relations redirect and rewrite the episode
+    // number. Check the requested number only after recognition so continuous
+    // numbering (e.g. source episode 14 -> destination episode 1) can be found.
+    if (!containsEpisodeNumber(episode, episode_number)) continue;
 
     return info.filePath();
   }

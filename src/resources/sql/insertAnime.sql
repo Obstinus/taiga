@@ -1,6 +1,9 @@
 INSERT OR REPLACE INTO
   anime(
     id,
+    mal_id,
+    kitsu_id,
+    anilist_id,
     title,
     english,
     japanese,
@@ -27,6 +30,9 @@ INSERT OR REPLACE INTO
   )
   VALUES(
     :id,
+    :mal_id,
+    :kitsu_id,
+    :anilist_id,
     :title,
     :english,
     :japanese,

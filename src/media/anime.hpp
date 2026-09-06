@@ -19,10 +19,15 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <string>
 #include <vector>
 
 #include "base/chrono.hpp"
+
+namespace sync {
+enum class ServiceId;
+}
 
 namespace anime {
 
@@ -88,8 +93,7 @@ struct Titles {
 
 struct Details {
   int id = kUnknownId;
-  // std::map<sync::ServiceId, std::string> uids;
-  // sync::ServiceId source = sync::ServiceId::Unknown;
+  std::map<sync::ServiceId, int> ids;
   std::time_t last_modified = 0;
   int episode_count = kUnknownEpisodeCount;
   int episode_length = kUnknownEpisodeLength;

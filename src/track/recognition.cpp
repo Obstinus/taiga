@@ -75,7 +75,12 @@ int identify(Episode& episode) {
   std::ranges::sort(matches, std::ranges::greater{}, &Cache::Data::Match::weight);
 
   for (const auto& match : matches) {
-    if (isValidMatch(match.id, episode)) return match.id;
+    auto candidate = episode;
+    candidate.setAnimeId(anime::kUnknownId);
+    if (!isValidMatch(match.id, candidate)) continue;
+
+    episode = candidate;
+    return candidate.animeId() != anime::kUnknownId ? candidate.animeId() : match.id;
   }
 
   return anime::kUnknownId;

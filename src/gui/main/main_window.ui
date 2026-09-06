@@ -51,39 +51,13 @@
        <property name="currentIndex">
         <number>2</number>
        </property>
-       <widget class="QWidget" name="homePage">
-        <layout class="QVBoxLayout" name="verticalLayout_2">
-         <item>
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>TODO: Home</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignmentFlag::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
+       <widget class="QWidget" name="homePage"/>
        <widget class="QWidget" name="searchPage"/>
        <widget class="QWidget" name="listPage"/>
        <widget class="QWidget" name="historyPage"/>
        <widget class="QWidget" name="libraryPage"/>
        <widget class="QWidget" name="torrentsPage"/>
-       <widget class="QWidget" name="profilePage">
-        <layout class="QVBoxLayout" name="verticalLayout_8">
-         <item>
-          <widget class="QLabel" name="label_8">
-           <property name="text">
-            <string>TODO: Profile</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignmentFlag::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
+       <widget class="QWidget" name="profilePage"/>
       </widget>
      </widget>
     </item>

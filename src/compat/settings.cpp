@@ -18,6 +18,7 @@
 
 #include "settings.hpp"
 
+#include <QUrl>
 #include <QXmlStreamReader>
 #include <chrono>
 
@@ -28,6 +29,7 @@
 #include "media/anime.hpp"
 #include "taiga/accounts.hpp"
 #include "taiga/settings.hpp"
+#include "track/torrent_settings.hpp"
 
 #define XML_ATTR(name) xml.attributes().value(name)
 #define XML_ATTR_BOOL(name) (XML_ATTR(name) == u"true")
@@ -41,6 +43,7 @@ void parseAnimeElement(QXmlStreamReader&, const taiga::Settings&);
 void parseAnimeItemsElement(QXmlStreamReader&, QList<anime::Settings>&);
 void parseProgramElement(QXmlStreamReader&, const taiga::Settings&);
 void parseRecognitionElement(QXmlStreamReader&, const taiga::Settings&);
+void parseTorrentElement(QXmlStreamReader&, track::TorrentSettings&, bool&);
 
 void readSettings(const std::string& path, const taiga::Settings& settings,
                   const taiga::Accounts& accounts) {
@@ -65,7 +68,6 @@ void readSettings(const std::string& path, const taiga::Settings& settings,
     } else if (xml.name() == u"program") {
       parseProgramElement(xml, settings);
     } else {
-      // @TODO: announce, rss
       xml.skipCurrentElement();
     }
   }
@@ -102,6 +104,42 @@ QList<anime::Settings> readAnimeSettings(const std::string& path) {
   }
 
   return items;
+}
+
+std::optional<track::TorrentSettings> readTorrentSettings(const std::string& path) {
+  base::XmlFileReader xml;
+
+  if (!xml.open(QString::fromStdString(path), removeInvalidCharacterReferences)) {
+    return std::nullopt;
+  }
+
+  if (!xml.readElement(u"settings")) {
+    xml.raiseError("Invalid settings file.");
+    return std::nullopt;
+  }
+
+  track::TorrentSettings settings = track::loadTorrentSettings();
+  bool found = false;
+
+  while (xml.readNextStartElement()) {
+    if (xml.name() == u"rss") {
+      while (xml.readNextStartElement()) {
+        if (xml.name() == u"torrent") {
+          parseTorrentElement(xml, settings, found);
+        } else {
+          xml.skipCurrentElement();
+        }
+      }
+    } else {
+      xml.skipCurrentElement();
+    }
+  }
+
+  if (xml.hasError()) {
+    qCritical() << xml.errorString();
+    return std::nullopt;
+  }
+  return found ? std::optional{settings} : std::nullopt;
 }
 
 void parseAccountElement(QXmlStreamReader& xml, const taiga::Settings& settings,
@@ -206,7 +244,13 @@ void parseRecognitionElement(QXmlStreamReader& xml, const taiga::Settings& setti
 
 void parseProgramElement(QXmlStreamReader& xml, const taiga::Settings& settings) {
   while (xml.readNextStartElement()) {
-    if (xml.name() == u"list") {
+    if (xml.name() == u"proxy") {
+      settings.setProxyHost(XML_ATTR_STR(u"host"));
+      settings.setProxyUsername(XML_ATTR_STR(u"username"));
+      settings.setProxyPassword(XML_ATTR_STR(u"password"));
+      xml.skipCurrentElement();
+
+    } else if (xml.name() == u"list") {
       while (xml.readNextStartElement()) {
         if (xml.name() == u"action") {
           const auto titleLanguage = XML_ATTR_STR(u"titlelang");
@@ -222,6 +266,45 @@ void parseProgramElement(QXmlStreamReader& xml, const taiga::Settings& settings)
           xml.skipCurrentElement();
         }
       }
+
+    } else {
+      xml.skipCurrentElement();
+    }
+  }
+}
+
+void parseTorrentElement(QXmlStreamReader& xml, track::TorrentSettings& settings, bool& found) {
+  found = true;
+
+  while (xml.readNextStartElement()) {
+    if (xml.name() == u"source") {
+      const auto url = XML_ATTR(u"address").toString().trimmed();
+      const QUrl parsed{url, QUrl::StrictMode};
+      if (parsed.isValid() && !parsed.host().isEmpty() &&
+          (parsed.scheme().compare(u"http", Qt::CaseInsensitive) == 0 ||
+           parsed.scheme().compare(u"https", Qt::CaseInsensitive) == 0)) {
+        settings.feedUrl = url;
+        settings.feedUrls = {url};
+      }
+      xml.skipCurrentElement();
+
+    } else if (xml.name() == u"search") {
+      const auto url = XML_ATTR(u"address").toString().trimmed();
+      if (url.contains("%title%")) settings.searchUrl = url;
+      xml.skipCurrentElement();
+
+    } else if (xml.name() == u"options") {
+      const auto autoCheck = XML_ATTR(u"autocheck").toString();
+      if (!autoCheck.isEmpty()) {
+        settings.autoRefresh = autoCheck.compare(u"true", Qt::CaseInsensitive) == 0;
+      }
+      const int interval = XML_ATTR_INT(u"checkinterval");
+      if (interval > 0) settings.refreshMinutes = interval;
+
+      auto directory = XML_ATTR(u"filedownloadpath").toString().trimmed();
+      if (directory.isEmpty()) directory = XML_ATTR(u"downloadpath").toString().trimmed();
+      if (!directory.isEmpty()) settings.downloadDirectory = directory;
+      xml.skipCurrentElement();
 
     } else {
       xml.skipCurrentElement();

@@ -198,7 +198,8 @@ QString animeFields(const bool minimal) {
       "youtubeVideoId,"
       // relationships
       "animeProductions,"
-      "categories"_s;
+      "categories,"
+      "mappings"_s;
 
   if (!minimal) fields += u",synopsis"_s;
 

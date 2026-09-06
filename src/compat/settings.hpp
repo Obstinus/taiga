@@ -19,9 +19,14 @@
 #pragma once
 
 #include <QList>
+#include <optional>
 #include <string>
 
 #include "media/anime_settings.hpp"
+
+namespace track {
+struct TorrentSettings;
+}
 
 namespace taiga {
 class Accounts;
@@ -34,5 +39,6 @@ void readSettings(const std::string& path, const taiga::Settings& settings,
                   const taiga::Accounts& accounts);
 
 QList<anime::Settings> readAnimeSettings(const std::string& path);
+std::optional<track::TorrentSettings> readTorrentSettings(const std::string& path);
 
 }  // namespace compat::v1

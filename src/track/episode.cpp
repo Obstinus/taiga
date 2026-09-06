@@ -47,6 +47,16 @@ void Episode::setElements(std::vector<anitomy::Element>& elements) {
   elements_ = elements;
 }
 
+void Episode::setElementValues(const anitomy::ElementKind kind,
+                               const std::vector<std::string>& values) {
+  auto value = values.begin();
+  for (auto& element : elements_) {
+    if (element.kind != kind) continue;
+    if (value == values.end()) break;
+    element.value = *value++;
+  }
+}
+
 bool Episode::contains(const anitomy::ElementKind kind) const {
   return find(kind) != elements_.end();
 }

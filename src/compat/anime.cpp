@@ -24,6 +24,7 @@
 #include "base/string.hpp"
 #include "base/xml.hpp"
 #include "compat/common.hpp"
+#include "sync/service.hpp"
 
 #define XML_ELEMENT xml.readElementText()
 
@@ -61,8 +62,16 @@ Anime parseAnimeElement(QXmlStreamReader& xml) {
 
   while (xml.readNextStartElement()) {
     if (xml.name() == u"id") {
-      // @TODO: Store ID from current `source`
-      anime.id = XML_ELEMENT.toInt();
+      const auto source = xml.attributes().value(u"name").toString();
+      const int id = XML_ELEMENT.toInt();
+      const auto service = source.isEmpty() ? sync::currentServiceId()
+                                            : sync::serviceIdFromSlug(source);
+      if (id > 0 && service != sync::ServiceId::Unknown) {
+        anime.ids[service] = id;
+        if (service == sync::currentServiceId()) anime.id = id;
+      } else if (anime.id == anime::kUnknownId && id > 0) {
+        anime.id = id;
+      }
 
     } else if (xml.name() == u"slug") {
       anime.slug = XML_ELEMENT.toStdString();
@@ -139,6 +148,10 @@ Anime parseAnimeElement(QXmlStreamReader& xml) {
     } else {
       xml.skipCurrentElement();
     }
+  }
+
+  if (anime.id == anime::kUnknownId && !anime.ids.empty()) {
+    anime.id = anime.ids.begin()->second;
   }
 
   return anime;

@@ -25,5 +25,6 @@ class Episode;
 namespace track::recognition {
 
 bool isValidMatch(const int id, const Episode& episode);
+bool isValidMatch(const int id, Episode& episode);
 
 }  // namespace track::recognition

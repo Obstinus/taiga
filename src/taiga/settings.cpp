@@ -18,6 +18,7 @@
 
 #include "settings.hpp"
 
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <ranges>
@@ -28,20 +29,47 @@
 #include "taiga/accounts.hpp"
 #include "taiga/path.hpp"
 #include "taiga/version.hpp"
+#include "track/torrent_settings.hpp"
 
 namespace taiga {
 
 void Settings::init() const {
   const auto appVersion = taiga::version().to_string();
 
+  const auto migrateTorrentSettings = [&] {
+    const auto legacyPath = std::format("{}/v1/settings.xml", get_data_path());
+    const auto torrentPath = QDir(QString::fromStdString(get_data_path()))
+                                 .filePath(QStringLiteral("torrents.json"));
+    if (!QFile::exists(QString::fromStdString(legacyPath)) || QFile::exists(torrentPath)) return;
+
+    if (auto torrentSettings = compat::v1::readTorrentSettings(legacyPath)) {
+      if (!QDir::isAbsolutePath(torrentSettings->downloadDirectory)) {
+        torrentSettings->downloadDirectory =
+            QDir(QString::fromStdString(get_data_path())).filePath(QStringLiteral("torrents"));
+      }
+      QString error;
+      if (!track::saveTorrentSettings(*torrentSettings, &error)) {
+        qWarning() << "Could not migrate torrent settings:" << error;
+      }
+    }
+  };
+
   // v1 to v2
   if (!QFile::exists(fileName())) {
-    compat::v1::readSettings(std::format("{}/v1/settings.xml", get_data_path()), *this, accounts);
+    const auto legacyPath = std::format("{}/v1/settings.xml", get_data_path());
+    compat::v1::readSettings(legacyPath, *this, accounts);
+
+    migrateTorrentSettings();
+
     setValue("meta.version", appVersion);
     return;
   }
 
   // v2.x
+  // Torrent settings are stored separately, so users who already created a
+  // v2 settings.json before torrent migration was added still need this step.
+  migrateTorrentSettings();
+
   const auto fileVersion = value("meta.version").toString().toStdString();
   if (fileVersion != appVersion) {
     setValue("meta.version", appVersion);

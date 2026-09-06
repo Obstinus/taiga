@@ -1,5 +1,8 @@
 CREATE TABLE IF NOT EXISTS anime(
   id INTEGER PRIMARY KEY,
+  mal_id INTEGER DEFAULT 0,
+  kitsu_id INTEGER DEFAULT 0,
+  anilist_id INTEGER DEFAULT 0,
   title TEXT,
   english TEXT,
   japanese TEXT,

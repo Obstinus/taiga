@@ -1,5 +1,6 @@
 fragment MediaFragment on Media {
   id
+  idMal
   title {
     romaji(stylised: true)
     english(stylised: true)

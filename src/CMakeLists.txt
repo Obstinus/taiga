@@ -119,6 +119,8 @@ target_sources(taiga PRIVATE
 	track/recognition_normalize.hpp
 	track/recognition_path.cpp
 	track/recognition_path.hpp
+	track/recognition_relations.cpp
+	track/recognition_relations.hpp
 	track/recognition_validate.cpp
 	track/recognition_validate.hpp
 	track/scanner.cpp
@@ -181,6 +183,18 @@ endif()
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	set_target_properties(taiga PROPERTIES OUTPUT_NAME Taiga)
 	set_target_properties(taiga PROPERTIES WIN32_EXECUTABLE ON)
+endif()
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	install(TARGETS taiga
+		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	)
+	install(FILES resources/taiga.desktop
+		DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+	)
+	install(FILES resources/icons/taiga.png
+		DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
+	)
 endif()
 
 add_subdirectory(gui)

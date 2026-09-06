@@ -20,6 +20,7 @@
 
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QPointer>
 #include <QtWidgets>
 #include <algorithm>
 
@@ -180,9 +181,7 @@ void MainWindow::initNowPlaying() {
 }
 
 void MainWindow::initPage(MainWindowPage page) {
-  static QSet<MainWindowPage> initializedPages;
-
-  if (initializedPages.contains(page)) return;
+  if (initializedPages_.contains(page)) return;
 
   static const auto init_page = [](QWidget* page, QWidget* widget) {
     const auto layout = new QHBoxLayout(page);
@@ -191,8 +190,38 @@ void MainWindow::initPage(MainWindowPage page) {
   };
 
   switch (page) {
-    case MainWindowPage::Home:
+    case MainWindowPage::Home: {
+      auto home = new QWidget(ui_->homePage);
+      auto layout = new QVBoxLayout(home);
+      layout->setAlignment(Qt::AlignCenter);
+
+      auto title = new QLabel(tr("Welcome to Taiga"), home);
+      auto titleFont = title->font();
+      titleFont.setPointSize(titleFont.pointSize() + 4);
+      titleFont.setBold(true);
+      title->setFont(titleFont);
+      title->setAlignment(Qt::AlignCenter);
+      layout->addWidget(title);
+
+      auto summary = new QLabel(home);
+      summary->setAlignment(Qt::AlignCenter);
+      layout->addWidget(summary);
+      m_homeSummary = summary;
+      updateHomePage();
+
+      auto actions = new QHBoxLayout;
+      auto listButton = new QPushButton(tr("Open anime list"), home);
+      auto syncButton = new QPushButton(tr("Synchronize"), home);
+      actions->addWidget(listButton);
+      actions->addWidget(syncButton);
+      layout->addLayout(actions);
+
+      connect(listButton, &QPushButton::clicked, this,
+              [this] { navigateTo(MainWindowPage::List); });
+      connect(syncButton, &QPushButton::clicked, this, &MainWindow::synchronize);
+      init_page(ui_->homePage, home);
       break;
+    }
 
     case MainWindowPage::Search:
       m_searchWidget = new SearchWidget(ui_->searchPage);
@@ -224,11 +253,101 @@ void MainWindow::initPage(MainWindowPage page) {
       });
       break;
 
-    case MainWindowPage::Profile:
+    case MainWindowPage::Profile: {
+      auto profile = new QWidget(ui_->profilePage);
+      auto layout = new QVBoxLayout(profile);
+      layout->setAlignment(Qt::AlignCenter);
+
+      auto title = new QLabel(tr("Profile"), profile);
+      auto titleFont = title->font();
+      titleFont.setPointSize(titleFont.pointSize() + 4);
+      titleFont.setBold(true);
+      title->setFont(titleFont);
+      title->setAlignment(Qt::AlignCenter);
+      layout->addWidget(title);
+
+      auto account = new QLabel(profile);
+      account->setAlignment(Qt::AlignCenter);
+      layout->addWidget(account);
+      m_profileSummary = account;
+      updateProfilePage();
+
+      auto actions = new QHBoxLayout;
+      auto authenticate = new QPushButton(tr("Authenticate"), profile);
+      auto syncButton = new QPushButton(tr("Synchronize"), profile);
+      auto settingsButton = new QPushButton(tr("Settings"), profile);
+      actions->addWidget(authenticate);
+      actions->addWidget(syncButton);
+      actions->addWidget(settingsButton);
+      layout->addLayout(actions);
+
+      connect(authenticate, &QPushButton::clicked, this, &MainWindow::authenticateFromProfile);
+      connect(syncButton, &QPushButton::clicked, this, &MainWindow::synchronize);
+      connect(settingsButton, &QPushButton::clicked, this,
+              [this] { SettingsDialog::show(this); });
+      init_page(ui_->profilePage, profile);
       break;
+    }
   }
 
-  initializedPages.insert(page);
+  initializedPages_.insert(page);
+}
+
+void MainWindow::refreshPage(const MainWindowPage page) {
+  switch (page) {
+    case MainWindowPage::Home:
+      updateHomePage();
+      break;
+    case MainWindowPage::Profile:
+      updateProfilePage();
+      break;
+    default:
+      break;
+  }
+}
+
+void MainWindow::updateHomePage() {
+  if (!m_homeSummary) return;
+
+  m_homeSummary->setText(
+      tr("%1 anime in your list · %2 configured library folder(s)")
+          .arg(anime::db.entries().size())
+          .arg(taiga::settings.libraryFolders().size()));
+}
+
+void MainWindow::updateProfilePage() {
+  if (!m_profileSummary) return;
+
+  const auto service = sync::currentServiceId();
+  const auto username =
+      taiga::accounts.serviceUsername(sync::serviceSlug(service).toStdString());
+  const auto accountName = username.empty() ? tr("Not configured")
+                                             : QString::fromStdString(username);
+
+  m_profileSummary->setText(
+      tr("%1\nAccount: %2\nStatus: %3")
+          .arg(sync::serviceName(service), accountName,
+               sync::isUserAuthenticated() ? tr("Authenticated") : tr("Not authenticated")));
+}
+
+void MainWindow::authenticateFromProfile() {
+  if (sync::currentServiceId() != sync::ServiceId::AniList) {
+    sync::authenticateUser();
+    return;
+  }
+
+  QPointer<MainWindow> guard{this};
+  taiga::accounts.loadAnilistToken([guard] {
+    if (!guard || sync::currentServiceId() != sync::ServiceId::AniList) return;
+
+    if (taiga::accounts.anilistToken().empty()) {
+      // The token-entry flow is owned by the Accounts page. Opening it here
+      // keeps the profile action usable for a first-time AniList login.
+      SettingsDialog::show(guard.data());
+    } else {
+      sync::authenticateUser();
+    }
+  });
 }
 
 void MainWindow::initStatusbar() {
@@ -245,6 +364,17 @@ void MainWindow::initStatusbar() {
   ui_->statusbar->addPermanentWidget(spinnerContainer);
 
   m_statusBarController = new StatusBarController(this, statusbar, spinner);
+
+  connect(&taiga::accounts, &taiga::Accounts::authenticationChanged, this,
+          [this](const bool) { updateProfilePage(); });
+  connect(&anime::db, &anime::Database::itemUpdated, this,
+          [this](const int) { updateHomePage(); });
+  connect(&anime::db, &anime::Database::entryUpdated, this,
+          [this](const int) { updateHomePage(); });
+  connect(&anime::db, &anime::Database::itemDeleted, this,
+          [this](const int, const QString&) { updateHomePage(); });
+  connect(&anime::db, &anime::Database::entryDeleted, this,
+          [this](const int) { updateHomePage(); });
 
   const QList<sync::Service*> services{
       sync::anilist::Service::instance(),
@@ -442,6 +572,7 @@ void MainWindow::configureTorrents() {
 
 void MainWindow::setPage(MainWindowPage page) {
   initPage(page);
+  refreshPage(page);
   m_statusBarController->clearMessage(StatusBarController::Source::Selection);
   ui_->stackedWidget->setCurrentIndex(static_cast<int>(page));
 }

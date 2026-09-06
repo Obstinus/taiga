@@ -29,6 +29,7 @@
 #include "media/anime.hpp"
 #include "media/anime_db.hpp"
 #include "track/episode.hpp"
+#include "track/recognition_relations.hpp"
 
 namespace track::recognition {
 
@@ -38,8 +39,7 @@ bool isValidEpisodeType(const Episode& episode) {
   const auto values = episode.elements(anitomy::ElementKind::Type);
 
   const auto isEpisodeTypeKeyword = [](const std::string& value) {
-    // Matches Anitomy's keywords for `KeywordKind::EpisodeType`.
-    // @TODO: Remove strings if Anitomy exposes `ElementKind::EpisodeType`.
+    // Anitomy currently exposes EpisodeType values through ElementKind::Type.
     static const std::vector<std::string> keywords{
         "op", "opening", "ncop", "ed", "ending", "nced", "preview", "pv",
     };
@@ -72,27 +72,56 @@ bool isValidEpisodeNumber(const Episode& episode, const anime::Details& item) {
     return false;  // no episode number to check against
   }
 
-  // @TODO: This truncates decimal episode numbers (e.g. "07.5")
-  const auto toInt = [](const std::string& value) { return QString::fromStdString(value).toInt(); };
-  const int value = std::ranges::max(numbers | std::views::transform(toInt));
+  double value = 0.0;
+  for (const auto& number : numbers) {
+    bool ok = false;
+    const auto parsed = QString::fromStdString(number).toDouble(&ok);
+    if (!ok) return false;
+    value = std::max(value, parsed);
+  }
 
-  if (value <= item.episode_count) return true;  // in range
-
-  // @TODO: Attempt episode redirection via deps/anime-relations
+  if (value > 0 && value <= item.episode_count) return true;  // in range
 
   return false;  // out of range
+}
+
+bool isValidEpisodeNumber(Episode& episode, const int id, const anime::Details& item) {
+  const auto numbers = episode.elements(anitomy::ElementKind::Episode);
+  if (numbers.empty()) return isValidEpisodeNumber(static_cast<const Episode&>(episode), item);
+
+  if (item.episode_count >= 1 &&
+      isValidEpisodeNumber(static_cast<const Episode&>(episode), item)) {
+    return true;
+  }
+
+  const auto redirection = findEpisodeRedirection(id, episode);
+  if (!redirection) return item.episode_count < 1;
+
+  const auto destination = anime::db.item(redirection->anime_id);
+  if (!destination) return false;
+
+  episode.setElementValues(anitomy::ElementKind::Episode, redirection->episode_numbers);
+  if (!isValidEpisodeNumber(static_cast<const Episode&>(episode), *destination)) return false;
+
+  episode.setAnimeId(redirection->anime_id);
+  return true;
 }
 
 }  // namespace
 
 bool isValidMatch(const int id, const Episode& episode) {
+  auto copy = episode;
+  return isValidMatch(id, copy);
+}
+
+bool isValidMatch(const int id, Episode& episode) {
   const auto item = anime::db.item(id);
 
   if (!item) return false;
 
   if (!isValidEpisodeType(episode)) return false;
 
-  if (!isValidEpisodeNumber(episode, *item)) return false;
+  if (!isValidEpisodeNumber(episode, id, *item)) return false;
 
   return true;
 }

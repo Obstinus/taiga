@@ -30,8 +30,17 @@
 namespace track::util {
 
 std::wstring CreateNameFromConditions(const FeedFilter& filter) {
-  // @TODO
-  return L"New Filter";
+  if (filter.conditions.empty())
+    return L"New Filter";
+
+  std::wstring name;
+  const auto separator = filter.match == kFeedFilterMatchAll ? L" and " : L" or ";
+  for (size_t i = 0; i < filter.conditions.size(); ++i) {
+    if (i > 0)
+      name += separator;
+    name += TranslateCondition(filter.conditions[i]);
+  }
+  return name;
 }
 
 std::wstring TranslateCondition(const FeedFilterCondition& condition) {

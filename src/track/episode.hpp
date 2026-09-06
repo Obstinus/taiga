@@ -33,7 +33,9 @@ public:
 
   const std::vector<anitomy::Element>& elements() const noexcept;
   void setElements(std::vector<anitomy::Element>& elements);
-  
+  void setElementValues(const anitomy::ElementKind kind,
+                        const std::vector<std::string>& values);
+
   bool contains(const anitomy::ElementKind kind) const;
   std::string element(const anitomy::ElementKind kind, const std::string placeholder = {}) const;
   std::vector<std::string> elements(const anitomy::ElementKind kind) const;

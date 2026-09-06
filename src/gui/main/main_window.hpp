@@ -19,8 +19,10 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QSet>
 
 class QLineEdit;
+class QLabel;
 
 namespace Ui {
 class MainWindow;
@@ -67,6 +69,7 @@ public:
   Ui::MainWindow* ui() const;
 
   void init();
+  void refreshPage(MainWindowPage page);
 
 public slots:
   void addNewFolder();
@@ -97,8 +100,15 @@ private:
   void initStatusbar();
   void initToolbar();
   void initTrayIcon();
+  void authenticateFromProfile();
+  void updateHomePage();
+  void updateProfilePage();
 
   Ui::MainWindow* ui_ = nullptr;
+
+  QSet<MainWindowPage> initializedPages_;
+  QLabel* m_homeSummary = nullptr;
+  QLabel* m_profileSummary = nullptr;
 
   HistoryWidget* m_historyWidget = nullptr;
   LibraryWidget* m_libraryWidget = nullptr;

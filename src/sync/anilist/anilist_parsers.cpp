@@ -32,6 +32,7 @@
 #include "media/anime.hpp"
 #include "media/anime_list.hpp"
 #include "media/anime_season.hpp"
+#include "sync/service.hpp"
 
 namespace sync::anilist {
 
@@ -100,6 +101,7 @@ std::optional<Anime> parseMedia(const QJsonValue& json) {
 
   Anime item{
       .id = id,
+      .ids = {{sync::ServiceId::AniList, id}},
       .last_modified = QDateTime::currentSecsSinceEpoch(),
       .episode_count = json["episodes"].toInt(),
       .episode_length = json["duration"].toInt(),
@@ -116,6 +118,10 @@ std::optional<Anime> parseMedia(const QJsonValue& json) {
           .english = json["title"]["english"].toString().toStdString(),
       },
   };
+
+  if (const int malId = json["idMal"].toInt(); malId > 0) {
+    item.ids[sync::ServiceId::MyAnimeList] = malId;
+  }
 
   const auto nativeTitle = json["title"]["native"].toString().toStdString();
   if (!nativeTitle.empty()) {

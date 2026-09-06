@@ -146,6 +146,10 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
   connect(this, &QDialog::finished, this, [currentService](const int result) {
     if (result != QDialog::Accepted) {
       taiga::settings.setService(currentService.toStdString());
+      if (auto* window = mainWindow()) {
+        window->refreshPage(MainWindowPage::Home);
+        window->refreshPage(MainWindowPage::Profile);
+      }
     }
   });
   const auto signIn = [this, serviceBox, authenticate, refreshAccount](bool replaceToken) {
@@ -424,6 +428,10 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     taiga::settings.setProxyUsername(proxyUser->text().toStdString());
     taiga::settings.setProxyPassword(proxyPassword->text().toStdString());
     track::media::detection()->init();
+    if (auto* window = mainWindow()) {
+      window->refreshPage(MainWindowPage::Home);
+      window->refreshPage(MainWindowPage::Profile);
+    }
   });
 
   connect(configure, &QPushButton::clicked, this, [this] {

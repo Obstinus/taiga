@@ -32,6 +32,7 @@
 #include "media/anime_db.hpp"
 #include "media/anime_list.hpp"
 #include "sync/myanimelist/myanimelist_utils.hpp"
+#include "sync/service.hpp"
 #include "sync/queue.hpp"
 #include "taiga/accounts.hpp"
 #include "taiga/version.hpp"
@@ -139,7 +140,14 @@ bool exportAsXml(const std::string& path) {
   for (const auto& entry : anime::db.entries()) {
     const auto item = anime::db.item(entry.anime_id);
     xml.writeStartElement("anime");
-    xml.writeNumberElement("series_animedb_id", item->id);  // @TODO: pass actual MAL ID
+    int malId = 0;
+    if (const auto it = item->ids.find(sync::ServiceId::MyAnimeList); it != item->ids.end()) {
+      malId = it->second;
+    }
+    if (malId == 0 && sync::currentServiceId() == sync::ServiceId::MyAnimeList) {
+      malId = item->id;
+    }
+    xml.writeNumberElement("series_animedb_id", malId);
     xml.writeTextElement("series_title", item->titles.romaji);
     xml.writeTextElement("series_type", format_series_type(item->type));
     xml.writeNumberElement("series_episodes", item->episode_count);

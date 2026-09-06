@@ -64,6 +64,7 @@ private:
   QString sql(const QString& name) const;
 
   void createTables();
+  void migrateSchema();
   QString currentVersion();
 
   void readItems();
