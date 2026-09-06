@@ -16,9 +16,11 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <QDesktopServices>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRestReply>
+#include <QUrl>
 
 #include "anilist.hpp"
 #include "sync/anilist/anilist_error.hpp"
@@ -28,12 +30,26 @@
 namespace sync::anilist {
 
 void Service::authenticateUser() {
+  const auto token = taiga::accounts.anilistToken();
+  if (token.empty()) {
+    QDesktopServices::openUrl(QUrl{QString::fromStdString(requestTokenUrl())});
+    emit errorOccurred(
+        "Open AniList authorization in your browser and enter the token in Settings.");
+    emit authenticationCompleted(false);
+    return;
+  }
+
+  api_.setBearerToken(QByteArray::fromStdString(token));
+
   const QJsonDocument data{QJsonObject{
       {"query", gql("Viewer")},
   }};
 
   const auto callback = [this](QRestReply& reply) {
     if (isError(reply)) {
+      if (reply.httpStatus() == 401) {
+        QDesktopServices::openUrl(QUrl{QString::fromStdString(requestTokenUrl())});
+      }
       handleError(*this, reply);
       emit authenticationCompleted(false);
       return;

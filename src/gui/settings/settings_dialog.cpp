@@ -19,14 +19,19 @@
 #include "settings_dialog.hpp"
 
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QFormLayout>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include "base/string.hpp"
 #include "gui/main/main_window.hpp"
 #include "gui/utils/theme.hpp"
+#include "sync/anilist/anilist_utils.hpp"
 #include "sync/service.hpp"
 #include "taiga/accounts.hpp"
 #include "taiga/settings.hpp"
@@ -138,7 +143,20 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
       taiga::settings.setService(currentService.toStdString());
     }
   });
-  connect(authenticate, &QPushButton::clicked, this, [refreshAccount] {
+  connect(authenticate, &QPushButton::clicked, this, [this, serviceBox, refreshAccount] {
+    const auto service = sync::serviceIdFromSlug(serviceBox->currentData().toString());
+    if (service == sync::ServiceId::AniList && !sync::isUserAuthenticated()) {
+      QDesktopServices::openUrl(QUrl{QString::fromStdString(sync::anilist::requestTokenUrl())});
+
+      bool ok = false;
+      const auto token =
+          QInputDialog::getText(this, tr("AniList authorization"),
+                                tr("Paste the access token shown after logging in to AniList:"),
+                                QLineEdit::EchoMode::Password, {}, &ok)
+              .trimmed();
+      if (!ok || token.isEmpty()) return;
+      taiga::accounts.setAnilistToken(token.toStdString());
+    }
     sync::authenticateUser();
     refreshAccount();
   });
@@ -146,6 +164,8 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
     sync::synchronize();
     refreshAccount();
   });
+  connect(&taiga::accounts, &taiga::Accounts::authenticationChanged, this,
+          [refreshAccount](const bool) { refreshAccount(); });
 
   ui_->treeWidget->expandAll();
 

@@ -256,7 +256,7 @@ bool willAuthenticate() {
     case ServiceId::Kitsu:
       return !taiga::accounts.kitsuAccessToken().empty();
     case ServiceId::AniList:
-      return !taiga::accounts.anilistToken().empty();
+      return !taiga::accounts.anilistToken().empty() || taiga::accounts.anilistUsername().empty();
   }
   return false;
 }
