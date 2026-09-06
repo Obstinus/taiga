@@ -20,6 +20,8 @@
 
 #include <QBoxLayout>
 #include <QLabel>
+#include <QTimer>
+#include <algorithm>
 #include <optional>
 
 #include "base/string.hpp"
@@ -62,6 +64,10 @@ NowPlayingWidget::NowPlayingWidget(QWidget* parent) : QFrame(parent) {
   m_timerLabel = new QLabel(this);
   m_timerLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
   layout->addWidget(m_timerLabel);
+
+  m_refreshTimer = new QTimer(this);
+  connect(m_refreshTimer, &QTimer::timeout, this, &NowPlayingWidget::refresh);
+  m_refreshTimer->start(1000);
 
   refresh();
 
@@ -130,7 +136,27 @@ void NowPlayingWidget::refresh() {
                            .arg(u"%1/%2"_s.arg(episodeNumber).arg(episodeCount))
                            .arg("font-weight: 600; text-decoration: none;"));
 
-  m_timerLabel->setText("List update in <b style=\"font-weight: 600;\">00:00</b>");
+  const auto media = track::media::detection()->getCurrentMedia();
+  const auto position = media ? media->position : std::chrono::milliseconds{0};
+  const auto entry = anime::db.entry(m_episode->animeId());
+  bool episodeNumberOk = false;
+  const auto episodeNumberValue =
+      QString::fromStdString(m_episode->element(anitomy::ElementKind::Episode)).toInt(
+          &episodeNumberOk);
+  const bool updated = entry && episodeNumberOk &&
+                       entry->watched_episodes >= episodeNumberValue;
+
+  if (updated) {
+    m_timerLabel->setText("List updated");
+  } else {
+    const auto remaining = std::max<std::chrono::milliseconds>(
+        std::chrono::milliseconds{0}, track::media::kListUpdateDelay - position);
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(remaining).count();
+    m_timerLabel->setText(
+        u"List update in <b style=\"font-weight: 600;\">%1:%2</b>"_s
+            .arg(seconds / 60, 2, 10, QChar('0'))
+            .arg(seconds % 60, 2, 10, QChar('0')));
+  }
 }
 
 }  // namespace gui

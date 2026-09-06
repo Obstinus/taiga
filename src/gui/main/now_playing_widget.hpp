@@ -25,6 +25,8 @@
 #include "media/anime.hpp"
 #include "track/episode.hpp"
 
+class QTimer;
+
 namespace gui {
 
 class NowPlayingWidget final : public QFrame {
@@ -44,6 +46,7 @@ private:
   QLabel* m_iconLabel = nullptr;
   QLabel* m_mainLabel = nullptr;
   QLabel* m_timerLabel = nullptr;
+  QTimer* m_refreshTimer = nullptr;
 
   std::optional<Anime> m_anime;
   std::optional<track::Episode> m_episode;

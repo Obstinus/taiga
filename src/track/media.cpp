@@ -168,6 +168,10 @@ void Detection::poll() {
     currentEpisode_ = episode;
     emit currentEpisodeChanged(episode);
   }
+
+  if (currentEpisode_ && currentMedia_->position >= kListUpdateDelay) {
+    saveCurrentEpisode();
+  }
 }
 
 bool Detection::isMediaIdentified() const {

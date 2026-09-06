@@ -22,6 +22,7 @@
 #include <QObject>
 #include <QTimer>
 #include <anisthesia.hpp>
+#include <chrono>
 #include <optional>
 #include <string>
 #include <vector>
@@ -29,6 +30,8 @@
 #include "track/episode.hpp"
 
 namespace track::media {
+
+inline constexpr auto kListUpdateDelay = std::chrono::minutes{2};
 
 class Detection final : public QObject {
   Q_OBJECT
