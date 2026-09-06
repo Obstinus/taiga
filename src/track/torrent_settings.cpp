@@ -54,6 +54,11 @@ bool validHttpUrl(const QString& text) {
          (url.scheme() == "https" || url.scheme() == "http");
 }
 
+bool containsUrl(const QStringList& urls, const QString& wanted) {
+  return std::ranges::any_of(
+      urls, [&wanted](const auto& url) { return url.compare(wanted, Qt::CaseInsensitive) == 0; });
+}
+
 }  // namespace
 
 namespace track {
@@ -63,7 +68,21 @@ TorrentSettings loadTorrentSettings() {
   readState(root, nullptr);
   const auto config = root.value("settings").toObject();
   TorrentSettings settings;
-  settings.feedUrl = config.value("feedUrl").toString("https://nyaa.si/?page=rss&c=1_2&f=0");
+  constexpr auto defaultFeedUrl = "https://nyaa.si/?page=rss&c=1_2&f=0";
+  const auto configuredFeedUrl = config.value("feedUrl").toString().trimmed();
+  for (const auto& value : config.value("feedUrls").toArray()) {
+    const auto feedUrl = value.toString().trimmed();
+    if (validHttpUrl(feedUrl) && !containsUrl(settings.feedUrls, feedUrl)) {
+      settings.feedUrls.append(feedUrl);
+    }
+  }
+  if (settings.feedUrls.isEmpty()) {
+    settings.feedUrls.append(validHttpUrl(configuredFeedUrl) ? configuredFeedUrl
+                                                             : QString::fromUtf8(defaultFeedUrl));
+  }
+  settings.feedUrl = configuredFeedUrl;
+  if (!validHttpUrl(settings.feedUrl)) settings.feedUrl = settings.feedUrls.front();
+  if (!containsUrl(settings.feedUrls, settings.feedUrl)) settings.feedUrls.append(settings.feedUrl);
   settings.searchUrl =
       config.value("searchUrl").toString("https://nyaa.si/?page=rss&c=1_2&f=0&q=%title%");
   settings.downloadDirectory =
@@ -79,10 +98,26 @@ TorrentSettings loadTorrentSettings() {
 }
 
 bool saveTorrentSettings(const TorrentSettings& settings, QString* error) {
-  if (!validHttpUrl(settings.feedUrl) || !settings.searchUrl.contains("%title%") ||
+  const auto activeFeedUrl = settings.feedUrl.trimmed();
+  if (!validHttpUrl(activeFeedUrl)) {
+    if (error) *error = QStringLiteral("Use valid HTTP(S) feed URLs.");
+    return false;
+  }
+
+  QStringList feedUrls;
+  for (const auto& value : settings.feedUrls) {
+    const auto feedUrl = value.trimmed();
+    if (feedUrl.isEmpty() || !validHttpUrl(feedUrl)) {
+      if (error) *error = QStringLiteral("Use valid HTTP(S) feed URLs.");
+      return false;
+    }
+    if (!containsUrl(feedUrls, feedUrl)) feedUrls.append(feedUrl);
+  }
+  if (!containsUrl(feedUrls, activeFeedUrl)) feedUrls.append(activeFeedUrl);
+
+  if (!settings.searchUrl.contains("%title%") ||
       !validHttpUrl(QString(settings.searchUrl).replace("%title%", "test"))) {
-    if (error)
-      *error = QStringLiteral("Use HTTP(S) feed URLs and a search URL containing %title%.");
+    if (error) *error = QStringLiteral("Use an HTTP(S) search URL containing %title%.");
     return false;
   }
   if (!QDir::isAbsolutePath(settings.downloadDirectory)) {
@@ -92,7 +127,8 @@ bool saveTorrentSettings(const TorrentSettings& settings, QString* error) {
   QJsonObject root;
   if (!readState(root, error)) return false;
   auto config = root.value("settings").toObject();
-  config.insert("feedUrl", settings.feedUrl);
+  config.insert("feedUrl", activeFeedUrl);
+  config.insert("feedUrls", QJsonArray::fromStringList(feedUrls));
   config.insert("searchUrl", settings.searchUrl);
   config.insert("downloadDirectory", settings.downloadDirectory);
   config.insert("titleFilter", settings.titleFilter);

@@ -27,6 +27,8 @@
 #include <cstdio>
 #include <utility>
 
+#include "track/seadex.hpp"
+
 namespace {
 
 int failures = 0;
@@ -102,6 +104,8 @@ void testParser() {
         QStringLiteral("RSS title/entity was not decoded"));
   check(magnet.downloadUrl.scheme() == QStringLiteral("magnet"),
         QStringLiteral("nyaa infoHash did not produce a magnet URL"));
+  check(magnet.infoHash == QStringLiteral("0123456789ABCDEF0123456789ABCDEF01234567"),
+        QStringLiteral("nyaa infoHash was not retained for SeaDex coloring"));
   check(magnet.infoUrl == QUrl("https://tracker.test/view/42"),
         QStringLiteral("relative RSS link was not resolved as info URL"));
   check(magnet.size == QStringLiteral("1.2 GiB") && magnet.seeders == 12 && magnet.leechers == 3,
@@ -134,6 +138,58 @@ void testParser() {
   const auto otherSource = track::parseTorrentFeed(validFeed(), QUrl("https://other.test/rss"));
   check(otherSource.items.size() == 2 && otherSource.items.back().id != enclosure.id,
         QStringLiteral("unrelated feed origins share arbitrary GUID archive IDs"));
+
+  const auto seadexFeed = QByteArrayLiteral(R"xml(
+    <rss version="2.0" xmlns:seadex="https://releases.moe/xmlns/seadex">
+      <channel>
+        <item>
+          <title>SeaDex update</title>
+          <link>0123456789abcdef0123456789abcdef01234567</link>
+          <guid>https://nyaa.si/view/123</guid>
+          <pubDate>Sat Sep 05 2026 11:44:00 GMT+0000 (Coordinated Universal Time)</pubDate>
+          <seadex:infoHash>0123456789abcdef0123456789abcdef01234567</seadex:infoHash>
+        </item>
+      </channel>
+    </rss>)xml");
+  const auto parsedSeadex = track::parseTorrentFeed(seadexFeed, QUrl("https://releases.moe/rss"));
+  check(parsedSeadex.items.size() == 1 &&
+            parsedSeadex.items.front().infoUrl == QUrl("https://nyaa.si/view/123"),
+        QStringLiteral("SeaDex RSS hash link did not fall back to its GUID page"));
+  check(parsedSeadex.items.front().published.isValid(),
+        QStringLiteral("SeaDex JavaScript date was not parsed"));
+}
+
+void testSeaDexParser() {
+  const auto response = QByteArrayLiteral(R"json({
+    "items": [
+      {"infoHash": "ABCDEF0123456789ABCDEF0123456789ABCDEF01", "isBest": true,
+       "files": [{"length": 1234, "name": "Example.mkv"}],
+       "releaseGroup": "Example", "url": "https://nyaa.si/view/1"},
+      {"infoHash": "1234567890ABCDEF1234567890ABCDEF12345678", "isBest": false},
+      {"infoHash": "<redacted>", "isBest": true},
+      {"infoHash": "not-an-info-hash", "isBest": true}
+    ]
+  })json");
+  QString error;
+  const auto statuses = track::parseSeaDexResponse(response, &error);
+  check(error.isEmpty() && statuses.size() == 2,
+        QStringLiteral("SeaDex response was not parsed into release statuses"));
+  check(statuses.value(QStringLiteral("abcdef0123456789abcdef0123456789abcdef01")) ==
+            track::SeaDexReleaseStatus::Best,
+        QStringLiteral("SeaDex best release status was not parsed"));
+  check(statuses.value(QStringLiteral("1234567890abcdef1234567890abcdef12345678")) ==
+            track::SeaDexReleaseStatus::Alternative,
+        QStringLiteral("SeaDex alternative release status was not parsed"));
+
+  const auto releases = track::parseSeaDexReleases(response, &error);
+  const auto release = releases.value(QStringLiteral("abcdef0123456789abcdef0123456789abcdef01"));
+  check(error.isEmpty() && release.title == QStringLiteral("[Example] Example.mkv") &&
+            release.size == 1234 && release.infoUrl == QUrl("https://nyaa.si/view/1"),
+        QStringLiteral("SeaDex release metadata was not parsed"));
+
+  const auto malformed = track::parseSeaDexResponse(QByteArrayLiteral("not json"), &error);
+  check(malformed.isEmpty() && !error.isEmpty(),
+        QStringLiteral("malformed SeaDex response was accepted"));
 }
 
 class HttpFixture final {
@@ -266,6 +322,7 @@ int main(int argc, char** argv) {
   QCoreApplication app(argc, argv);
   testHelpers();
   testParser();
+  testSeaDexParser();
   testClient();
 
   if (failures == 0) std::puts("Torrent feed tests passed.");

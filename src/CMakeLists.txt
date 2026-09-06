@@ -123,6 +123,8 @@ target_sources(taiga PRIVATE
 	track/recognition_validate.hpp
 	track/scanner.cpp
 	track/scanner.hpp
+	track/seadex.cpp
+	track/seadex.hpp
 	track/torrent_feed.cpp
 	track/torrent_feed.hpp
 	track/torrent_download.cpp
@@ -189,6 +191,8 @@ if (TAIGA_BUILD_TORRENT_TESTS)
 		${CMAKE_SOURCE_DIR}/tests/torrent_feed_test.cpp
 		track/torrent_feed.cpp
 		track/torrent_feed.hpp
+		track/seadex.cpp
+		track/seadex.hpp
 	)
 	target_link_libraries(taiga-torrent-feed-test PRIVATE Qt6::Core Qt6::Network)
 	add_test(NAME torrent-feed COMMAND taiga-torrent-feed-test)
@@ -213,6 +217,8 @@ if (TAIGA_BUILD_TORRENT_TESTS)
 		gui/torrents/torrents_widget.hpp
 		track/torrent_feed.cpp
 		track/torrent_feed.hpp
+		track/seadex.cpp
+		track/seadex.hpp
 		track/torrent_download.cpp
 		track/torrent_download.hpp
 		track/torrent_settings.cpp

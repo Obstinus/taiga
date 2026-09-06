@@ -26,19 +26,22 @@
 #include <optional>
 
 #include "gui/common/page_widget.hpp"
+#include "track/seadex.hpp"
 #include "track/torrent_feed.hpp"
 #include "track/torrent_settings.hpp"
 
 class QAction;
 class QCheckBox;
+class QComboBox;
 class QLabel;
 class QLineEdit;
 class QTableWidget;
 class QTimer;
 
 namespace track {
+class SeaDexClient;
 class TorrentDownloader;
-}
+}  // namespace track
 
 namespace gui {
 
@@ -60,6 +63,7 @@ private:
   void fetch(const QUrl& url);
   void handleFeedFinished(const QList<track::TorrentItem>& items);
   void handleFeedFailed(const QString& error);
+  void handleSeaDexFinished(const track::SeaDexReleases& releases);
 
   void renderItems();
   void applyFilters();
@@ -81,14 +85,16 @@ private:
 
   track::TorrentSettings settingsFromUi() const;
   bool saveSettings(const track::TorrentSettings& settings, QString* error = nullptr);
+  void updateFeedSelector();
   void updateRefreshTimer();
   void updateActionState();
   void setStatus(const QString& text, bool error = false);
 
   track::TorrentFeedClient* m_feedClient = nullptr;
+  track::SeaDexClient* m_seadexClient = nullptr;
   track::TorrentDownloader* m_downloader = nullptr;
 
-  QLineEdit* m_feedUrlEdit = nullptr;
+  QComboBox* m_feedSelector = nullptr;
   QLineEdit* m_searchEdit = nullptr;
   QLineEdit* m_titleFilterEdit = nullptr;
   QLineEdit* m_groupFilterEdit = nullptr;
@@ -106,6 +112,7 @@ private:
   QAction* m_actionSettings = nullptr;
 
   QList<track::TorrentItem> m_items;
+  track::SeaDexReleases m_seadexReleases;
   QSet<QString> m_archivedIds;
   QSet<QString> m_checkedIds;
   QQueue<track::TorrentItem> m_downloadQueue;

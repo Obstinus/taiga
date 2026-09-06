@@ -18,10 +18,12 @@
 
 #include "torrent_feed.hpp"
 
+#include <QLocale>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSet>
+#include <QTimeZone>
 #include <QTimer>
 #include <QUrlQuery>
 #include <QXmlStreamReader>
@@ -76,6 +78,29 @@ int parseCount(const QString& text) {
 QDateTime parseDate(const QString& text) {
   auto value = text.trimmed();
   if (value.isEmpty()) return {};
+
+  // SeaDex serializes JavaScript Date values, including a long parenthesized
+  // timezone name, e.g. "Sat Sep 05 2026 11:44:00 GMT+0000 (...)".
+  const auto timezoneName = value.indexOf(QStringLiteral(" ("));
+  if (timezoneName > 0) value.truncate(timezoneName);
+  const auto gmt = value.lastIndexOf(QStringLiteral(" GMT"));
+  if (gmt > 0 && value.size() >= gmt + 9) {
+    const auto datePart = value.left(gmt);
+    const auto offsetPart = value.sliced(gmt + 4, 5);
+    const auto date = QLocale::c().toDateTime(datePart, QStringLiteral("ddd MMM dd yyyy HH:mm:ss"));
+    bool hoursOk = false;
+    bool minutesOk = false;
+    const auto hours = offsetPart.sliced(1, 2).toInt(&hoursOk);
+    const auto minutes = offsetPart.sliced(3, 2).toInt(&minutesOk);
+    if (date.isValid() && offsetPart.size() == 5 &&
+        (offsetPart.front() == QChar{'+'} || offsetPart.front() == QChar{'-'}) && hoursOk &&
+        minutesOk && hours < 24 && minutes < 60) {
+      const auto sign = offsetPart.front() == QChar{'-'} ? -1 : 1;
+      auto adjusted = date;
+      adjusted.setTimeZone(QTimeZone::fromSecondsAheadOfUtc(sign * (hours * 60 + minutes) * 60));
+      return adjusted;
+    }
+  }
 
   // Qt's RFC 2822 parser intentionally accepts numeric offsets but not the
   // GMT/UTC abbreviations commonly emitted by RSS producers.
@@ -229,6 +254,7 @@ void appendRawItem(const RawTorrentItem& raw, const QUrl& source, QList<TorrentI
 
   TorrentItem item;
   item.title = raw.title;
+  item.infoHash = infoHash;
   item.size = raw.size.isEmpty() ? raw.enclosureLength : raw.size;
   item.seeders = parseCount(raw.seeders);
   item.leechers = parseCount(raw.leechers);
@@ -244,7 +270,12 @@ void appendRawItem(const RawTorrentItem& raw, const QUrl& source, QList<TorrentI
 
   // RSS links conventionally point at the item's web page.  A link that is
   // itself a torrent is used only as the download target.
-  if (isHttpUrl(link) && !looksLikeTorrentLink(link)) item.infoUrl = link;
+  // SeaDex's RSS feed uses the info hash as its link, which resolves to a
+  // harmless-looking HTTP URL but is not an information page.  Prefer its
+  // GUID in that case (normally the corresponding Nyaa page).
+  if (isHttpUrl(link) && !looksLikeTorrentLink(link) && normalizedInfoHash(raw.link).isEmpty()) {
+    item.infoUrl = link;
+  }
 
   if (item.infoUrl.isEmpty()) {
     const auto guidUrl = resolveUrl(raw.guid, source);

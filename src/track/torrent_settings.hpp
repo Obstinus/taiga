@@ -7,6 +7,7 @@ namespace track {
 
 struct TorrentSettings {
   QString feedUrl;
+  QStringList feedUrls;
   QString searchUrl;
   QString downloadDirectory;
   QString titleFilter;

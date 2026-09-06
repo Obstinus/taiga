@@ -348,6 +348,7 @@ void testSettings() {
 
   track::TorrentSettings expected;
   expected.feedUrl = QStringLiteral("https://feed.example.test/rss");
+  expected.feedUrls = {expected.feedUrl, QStringLiteral("https://releases.moe/rss")};
   expected.searchUrl = QStringLiteral("https://feed.example.test/search?q=%title%");
   expected.downloadDirectory = QDir(directory.path()).filePath(QStringLiteral("downloads"));
   expected.titleFilter = QStringLiteral("My title");
@@ -361,7 +362,8 @@ void testSettings() {
   check(track::saveTorrentSettings(expected, &error),
         QStringLiteral("valid torrent settings could not be saved: ") + error);
   const auto actual = track::loadTorrentSettings();
-  check(actual.feedUrl == expected.feedUrl && actual.searchUrl == expected.searchUrl &&
+  check(actual.feedUrl == expected.feedUrl && actual.feedUrls == expected.feedUrls &&
+            actual.searchUrl == expected.searchUrl &&
             actual.downloadDirectory == expected.downloadDirectory &&
             actual.titleFilter == expected.titleFilter &&
             actual.releaseGroup == expected.releaseGroup &&
@@ -371,6 +373,17 @@ void testSettings() {
             actual.refreshMinutes == expected.refreshMinutes,
         QStringLiteral("torrent settings roundtrip changed values"));
 
+  const auto legacy = QByteArrayLiteral(
+      R"json({"settings":{"feedUrl":"https://legacy.example.test/rss","searchUrl":"https://legacy.example.test/search?q=%title%","downloadDirectory":"/tmp/legacy-torrents"}})json");
+  check(writeStateBytes(legacy), QStringLiteral("could not write legacy settings fixture"));
+  const auto migrated = track::loadTorrentSettings();
+  check(migrated.feedUrl == QStringLiteral("https://legacy.example.test/rss") &&
+            migrated.feedUrls == QStringList{QStringLiteral("https://legacy.example.test/rss")},
+        QStringLiteral("legacy single-feed settings were not migrated to a feed list"));
+
+  check(track::saveTorrentSettings(expected, &error),
+        QStringLiteral("torrent settings could not be restored after migration: ") + error);
+
   error.clear();
   check(
       track::saveTorrentArchive(
@@ -378,7 +391,8 @@ void testSettings() {
       QStringLiteral("torrent archive could not be saved: ") + error);
   check(track::loadTorrentArchive() == QStringList{QStringLiteral("one"), QStringLiteral("two")},
         QStringLiteral("torrent archive roundtrip did not deduplicate/filter IDs"));
-  check(track::loadTorrentSettings().feedUrl == expected.feedUrl,
+  check(track::loadTorrentSettings().feedUrl == expected.feedUrl &&
+            track::loadTorrentSettings().feedUrls == expected.feedUrls,
         QStringLiteral("saving torrent archive did not preserve torrent settings"));
 
   const QByteArray invalid = "{ this is not valid JSON";

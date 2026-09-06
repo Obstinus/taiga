@@ -1,6 +1,8 @@
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
+#include <QColor>
+#include <QComboBox>
 #include <QDesktopServices>
 #include <QDir>
 #include <QLineEdit>
@@ -63,7 +65,8 @@ int main(int argc, char** argv) {
   if (!temporary.isValid()) return 1;
   dataPath = temporary.path();
   auto settings = track::loadTorrentSettings();
-  settings.feedUrl = "http://127.0.0.1:1/rss";
+  settings.feedUrl = "https://releases.moe/rss";
+  settings.feedUrls = {"https://nyaa.si/?page=rss&c=1_2&f=0", settings.feedUrl};
   settings.searchUrl = "http://127.0.0.1:1/rss?q=%title%";
   settings.autoRefresh = false;
   check(track::saveTorrentSettings(settings), "save isolated widget settings");
@@ -71,18 +74,21 @@ int main(int argc, char** argv) {
   const QList<track::TorrentItem> items{
       {.id = "alpha",
        .title = "[Group A] Example Alpha - 01 [1080p]",
+       .infoHash = "0123456789abcdef0123456789abcdef01234567",
        .downloadUrl = QUrl("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567"),
-       .size = "1.2 GiB",
+       .size = "",
        .seeders = 100,
        .leechers = 3},
       {.id = "beta",
        .title = "[Group B] Example Beta - 02 [720p]",
+       .infoHash = "1123456789abcdef0123456789abcdef01234567",
        .downloadUrl = QUrl("magnet:?xt=urn:btih:1123456789abcdef0123456789abcdef01234567"),
-       .size = "650 MiB",
+       .size = "",
        .seeders = 12,
        .leechers = 1},
       {.id = "gamma",
        .title = "[Group A] Example Gamma - 03 [1080p]",
+       .infoHash = "2123456789abcdef0123456789abcdef01234567",
        .downloadUrl = QUrl("magnet:?xt=urn:btih:2123456789abcdef0123456789abcdef01234567"),
        .size = "900 MiB",
        .seeders = 2,
@@ -96,6 +102,8 @@ int main(int argc, char** argv) {
     widget.show();
     app.processEvents();
     auto* client = widget.findChild<track::TorrentFeedClient*>();
+    auto* seadex = widget.findChild<track::SeaDexClient*>();
+    auto* feedSelector = widget.findChild<QComboBox*>("torrentFeedSelector");
     auto* table = widget.findChild<QTableWidget*>("torrentTable");
     auto* title = widget.findChild<QLineEdit*>("torrentTitleFilter");
     auto* group = widget.findChild<QLineEdit*>("torrentGroupFilter");
@@ -104,13 +112,39 @@ int main(int argc, char** argv) {
     auto* discard = widget.findChild<QAction*>("torrentDiscard");
     auto* restore = widget.findChild<QAction*>("torrentRestore");
     auto* open = widget.findChild<QAction*>("torrentOpen");
-    if (!client || !table || !title || !group || !resolution || !showArchived || !discard ||
-        !restore || !open) {
+    if (!client || !seadex || !feedSelector || !table || !title || !group || !resolution ||
+        !showArchived || !discard || !restore || !open) {
       std::fprintf(stderr, "FAIL: torrent widget controls missing\n");
       return 1;
     }
+    check(feedSelector->currentText() == settings.feedUrl, "feed selector loads the active feed");
+    check(feedSelector->count() >= 2, "feed selector loads the saved feed list");
     client->finished(items);
+    seadex->cancel();
+    seadex->finished(track::SeaDexReleases{
+        {items[0].infoHash.toLower(),
+         track::SeaDexRelease{.status = track::SeaDexReleaseStatus::Best,
+                              .title = "[Group A] Enriched Alpha - 01 [1080p]",
+                              .size = 1234,
+                              .infoUrl = QUrl("https://nyaa.si/view/1")}},
+        {items[1].infoHash.toLower(),
+         track::SeaDexRelease{.status = track::SeaDexReleaseStatus::Alternative,
+                              .title = "[Group B] Enriched Beta - 02 [720p]",
+                              .size = 5678,
+                              .infoUrl = QUrl("https://nyaa.si/view/2")}},
+    });
     check(visibleRows(table) == 3, "render RSS results");
+    const auto bestRow = titleRow(table, "[Group A] Enriched Alpha - 01 [1080p]");
+    const auto alternativeRow = titleRow(table, "[Group B] Enriched Beta - 02 [720p]");
+    check(bestRow >= 0 && table->item(bestRow, 0) &&
+              table->item(bestRow, 0)->background().color() == QColor(0, 172, 255, 31),
+          "SeaDex best release uses the blue highlight");
+    check(alternativeRow >= 0 && table->item(alternativeRow, 0) &&
+              table->item(alternativeRow, 0)->background().color() == QColor(255, 172, 0, 31),
+          "SeaDex alternative release uses the orange highlight");
+    check(bestRow >= 0 && table->item(bestRow, 1) &&
+              table->item(bestRow, 1)->text() == QStringLiteral("1.2 KiB"),
+          "SeaDex file metadata fills the missing size");
     title->setText("alpha");
     check(visibleRows(table) == 1, "title filter is case insensitive");
     title->clear();
@@ -124,7 +158,7 @@ int main(int argc, char** argv) {
     resolution->clear();
 
     table->sortItems(0, Qt::DescendingOrder);
-    auto row = titleRow(table, items[1].title);
+    auto row = titleRow(table, "[Group B] Enriched Beta - 02 [720p]");
     check(row >= 0, "find beta after sorting");
     table->selectRow(row);
     discard->trigger();
@@ -132,7 +166,7 @@ int main(int argc, char** argv) {
     check(visibleRows(table) == 2, "discarded item is hidden");
     showArchived->setChecked(true);
     check(visibleRows(table) == 3, "show archived results");
-    row = titleRow(table, items[1].title);
+    row = titleRow(table, "[Group B] Enriched Beta - 02 [720p]");
     table->clearSelection();
     table->selectRow(row);
     restore->trigger();
@@ -140,7 +174,7 @@ int main(int argc, char** argv) {
     showArchived->setChecked(false);
 
     table->clearSelection();
-    table->selectRow(titleRow(table, items[0].title));
+    table->selectRow(titleRow(table, "[Group A] Enriched Alpha - 01 [1080p]"));
     open->trigger();
     // The downloader completes magnets immediately; the UI may queue the next step.
     for (int i = 0; i < 5; ++i) app.processEvents();

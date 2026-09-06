@@ -21,6 +21,7 @@
 #include <QAction>
 #include <QCheckBox>
 #include <QColor>
+#include <QComboBox>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -31,11 +32,13 @@
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QLocale>
 #include <QMenu>
 #include <QPalette>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTimer>
@@ -44,8 +47,10 @@
 #include <QVBoxLayout>
 #include <QVariant>
 #include <algorithm>
+#include <array>
 #include <limits>
 
+#include "track/seadex.hpp"
 #include "track/torrent_download.hpp"
 
 namespace {
@@ -136,6 +141,53 @@ QString torrentCountText(const int count) {
   return QObject::tr("%n torrent(s)", "torrent count", count);
 }
 
+bool isSeaDexFeed(const QString& value) {
+  const QUrl url{value.trimmed(), QUrl::StrictMode};
+  return url.host().compare(QStringLiteral("releases.moe"), Qt::CaseInsensitive) == 0;
+}
+
+QString formatSeaDexSize(const qint64 bytes) {
+  if (bytes < 0) return {};
+
+  const auto units = std::array{QStringLiteral("B"), QStringLiteral("KiB"), QStringLiteral("MiB"),
+                                QStringLiteral("GiB"), QStringLiteral("TiB")};
+  double value = static_cast<double>(bytes);
+  qsizetype unit = 0;
+  while (value >= 1024.0 && unit + 1 < static_cast<qsizetype>(units.size())) {
+    value /= 1024.0;
+    ++unit;
+  }
+
+  const auto precision = value < 10.0 && unit > 0 ? 1 : 0;
+  return QStringLiteral("%1 %2").arg(QString::number(value, 'f', precision), units.at(unit));
+}
+
+QColor seaDexBackground(const track::SeaDexReleaseStatus status) {
+  // These are the same colors and opacity used by the official NyaaBlue
+  // userscript: best releases are blue and alternatives are orange.
+  switch (status) {
+    case track::SeaDexReleaseStatus::Best:
+      return QColor{0, 172, 255, 31};
+    case track::SeaDexReleaseStatus::Alternative:
+      return QColor{255, 172, 0, 31};
+    case track::SeaDexReleaseStatus::Unknown:
+      return {};
+  }
+  return {};
+}
+
+QString seaDexLabel(const track::SeaDexReleaseStatus status) {
+  switch (status) {
+    case track::SeaDexReleaseStatus::Best:
+      return QObject::tr("SeaDex: best release");
+    case track::SeaDexReleaseStatus::Alternative:
+      return QObject::tr("SeaDex: alternative release");
+    case track::SeaDexReleaseStatus::Unknown:
+      return {};
+  }
+  return {};
+}
+
 }  // namespace
 
 namespace gui {
@@ -143,6 +195,7 @@ namespace gui {
 TorrentsWidget::TorrentsWidget(QWidget* parent)
     : PageWidget(parent),
       m_feedClient(new track::TorrentFeedClient(this)),
+      m_seadexClient(new track::SeaDexClient(this)),
       m_downloader(new track::TorrentDownloader(this)),
       m_refreshTimer(new QTimer(this)),
       m_settings(track::loadTorrentSettings()) {
@@ -153,14 +206,15 @@ TorrentsWidget::TorrentsWidget(QWidget* parent)
   // Feed and search controls live next to the inherited toolbar.  They are
   // deliberately ordinary widgets instead of a dependency on MainWindow's
   // global search box, making this page usable in isolation as well.
-  m_feedUrlEdit = new QLineEdit(this);
-  m_feedUrlEdit->setObjectName(QStringLiteral("torrentFeedUrl"));
-  m_feedUrlEdit->setText(m_settings.feedUrl);
-  m_feedUrlEdit->setPlaceholderText(tr("RSS feed URL"));
-  m_feedUrlEdit->setClearButtonEnabled(true);
-  m_feedUrlEdit->setMinimumWidth(240);
-  m_feedUrlEdit->setToolTip(tr("RSS feed URL"));
-  m_toolbarLayout->insertWidget(0, m_feedUrlEdit);
+  m_feedSelector = new QComboBox(this);
+  m_feedSelector->setObjectName(QStringLiteral("torrentFeedSelector"));
+  m_feedSelector->setMinimumWidth(240);
+  m_feedSelector->setToolTip(tr("Select the RSS feed"));
+  m_feedSelector->setSizeAdjustPolicy(
+      QComboBox::SizeAdjustPolicy::AdjustToMinimumContentsLengthWithIcon);
+  m_feedSelector->setMinimumContentsLength(28);
+  m_toolbarLayout->insertWidget(0, m_feedSelector);
+  updateFeedSelector();
 
   m_searchEdit = new QLineEdit(this);
   m_searchEdit->setObjectName(QStringLiteral("torrentSearch"));
@@ -246,6 +300,8 @@ TorrentsWidget::TorrentsWidget(QWidget* parent)
   connect(m_feedClient, &track::TorrentFeedClient::finished, this,
           &TorrentsWidget::handleFeedFinished);
   connect(m_feedClient, &track::TorrentFeedClient::failed, this, &TorrentsWidget::handleFeedFailed);
+  connect(m_seadexClient, &track::SeaDexClient::finished, this,
+          &TorrentsWidget::handleSeaDexFinished);
   connect(m_downloader, &track::TorrentDownloader::succeeded, this,
           &TorrentsWidget::handleDownloadSucceeded);
   connect(m_downloader, &track::TorrentDownloader::failed, this,
@@ -259,7 +315,21 @@ TorrentsWidget::TorrentsWidget(QWidget* parent)
   connect(m_actionRestore, &QAction::triggered, this, &TorrentsWidget::restoreSelected);
   connect(m_actionSettings, &QAction::triggered, this, &TorrentsWidget::showSettings);
 
-  connect(m_feedUrlEdit, &QLineEdit::returnPressed, this, &TorrentsWidget::refresh);
+  connect(m_feedSelector, qOverload<int>(&QComboBox::activated), this, [this](const int index) {
+    if (index < 0) return;
+    const auto selectedFeed = m_feedSelector->itemText(index).trimmed();
+    if (selectedFeed.isEmpty() || selectedFeed == m_settings.feedUrl) return;
+
+    auto settings = settingsFromUi();
+    settings.feedUrl = selectedFeed;
+    QString error;
+    if (!saveSettings(settings, &error)) {
+      setStatus(error, true);
+      return;
+    }
+    if (m_fetching) cancelRefresh();
+    refresh();
+  });
   connect(m_searchEdit, &QLineEdit::returnPressed, this,
           [this]() { search(m_searchEdit->text()); });
 
@@ -411,6 +481,7 @@ void TorrentsWidget::fetch(const QUrl& url) {
 void TorrentsWidget::handleFeedFinished(const QList<track::TorrentItem>& items) {
   m_fetching = false;
   m_items = items;
+  m_seadexReleases.clear();
 
   // Keep checked state only for items that still exist in the new feed.  The
   // state itself is keyed by ID, never by a table row (sorting changes rows).
@@ -427,12 +498,36 @@ void TorrentsWidget::handleFeedFinished(const QList<track::TorrentItem>& items) 
   m_statusIsError = false;
   renderItems();
   updateActionState();
+
+  QStringList infoHashes;
+  for (const auto& item : m_items) {
+    if (!item.infoHash.trimmed().isEmpty()) infoHashes.append(item.infoHash);
+  }
+  m_seadexClient->fetch(infoHashes);
 }
 
 void TorrentsWidget::handleFeedFailed(const QString& error) {
   m_fetching = false;
   updateActionState();
   setStatus(error.isEmpty() ? tr("Could not load the torrent feed.") : error, true);
+}
+
+void TorrentsWidget::handleSeaDexFinished(const track::SeaDexReleases& releases) {
+  m_seadexReleases = releases;
+  if (isSeaDexFeed(m_settings.feedUrl)) {
+    for (auto& item : m_items) {
+      const auto key = item.infoHash.trimmed().toLower();
+      const auto release = m_seadexReleases.constFind(key);
+      if (release == m_seadexReleases.cend()) continue;
+
+      if (!release->title.isEmpty()) item.title = release->title;
+      if (item.size.isEmpty()) item.size = formatSeaDexSize(release->size);
+      if (release->infoUrl.isValid() && !release->infoUrl.isEmpty()) {
+        item.infoUrl = release->infoUrl;
+      }
+    }
+  }
+  renderItems();
 }
 
 void TorrentsWidget::renderItems() {
@@ -461,6 +556,15 @@ void TorrentsWidget::renderItems() {
       titleItem->setToolTip(item.infoUrl.toString());
     }
 
+    const auto seaDexRelease = m_seadexReleases.value(item.infoHash.trimmed().toLower());
+    const auto seaDexStatus = seaDexRelease.status;
+    const auto seaDexColor = seaDexBackground(seaDexStatus);
+    const auto seaDexText = seaDexLabel(seaDexStatus);
+    if (!seaDexText.isEmpty()) {
+      const auto tooltip = titleItem->toolTip();
+      titleItem->setToolTip(tooltip.isEmpty() ? seaDexText : tooltip + QChar{'\n'} + seaDexText);
+    }
+
     const auto archived = isArchived(item);
     if (archived) {
       const auto color =
@@ -484,6 +588,12 @@ void TorrentsWidget::renderItems() {
             : QStringLiteral("—");
     auto* publishedItem = new TorrentTableItem(publishedText, dateSortKey(item.published));
     if (archived) publishedItem->setForeground(titleItem->foreground());
+
+    if (seaDexColor.isValid()) {
+      for (auto* cell : {titleItem, sizeItem, seedItem, publishedItem}) {
+        cell->setBackground(seaDexColor);
+      }
+    }
     m_table->setItem(row, kPublishedColumn, publishedItem);
 
     ++row;
@@ -723,7 +833,7 @@ void TorrentsWidget::openInfoForRow(const int row) {
 
 track::TorrentSettings TorrentsWidget::settingsFromUi() const {
   auto settings = m_settings;
-  settings.feedUrl = m_feedUrlEdit->text().trimmed();
+  settings.feedUrl = m_feedSelector->currentText().trimmed();
   settings.titleFilter = m_titleFilterEdit->text().trimmed();
   settings.releaseGroup = m_groupFilterEdit->text().trimmed();
   settings.resolution = m_resolutionFilterEdit->text().trimmed();
@@ -741,6 +851,25 @@ bool TorrentsWidget::saveSettings(const track::TorrentSettings& settings, QStrin
   return true;
 }
 
+void TorrentsWidget::updateFeedSelector() {
+  if (!m_feedSelector) return;
+
+  auto feedUrls = m_settings.feedUrls;
+  if (feedUrls.isEmpty() && !m_settings.feedUrl.isEmpty()) feedUrls.append(m_settings.feedUrl);
+  if (feedUrls.isEmpty()) return;
+
+  const QSignalBlocker blocker(m_feedSelector);
+  m_feedSelector->clear();
+  m_feedSelector->addItems(feedUrls);
+
+  auto activeIndex = feedUrls.indexOf(m_settings.feedUrl);
+  if (activeIndex < 0) {
+    m_feedSelector->addItem(m_settings.feedUrl);
+    activeIndex = m_feedSelector->count() - 1;
+  }
+  m_feedSelector->setCurrentIndex(activeIndex);
+}
+
 void TorrentsWidget::showSettings() {
   QDialog dialog(this);
   dialog.setObjectName(QStringLiteral("torrentSettingsDialog"));
@@ -752,9 +881,36 @@ void TorrentsWidget::showSettings() {
   form->setFieldGrowthPolicy(QFormLayout::FieldGrowthPolicy::ExpandingFieldsGrow);
   dialogLayout->addLayout(form);
 
-  auto* feedEdit = new QLineEdit(m_settings.feedUrl, &dialog);
+  auto* feedList = new QListWidget(&dialog);
+  feedList->setObjectName(QStringLiteral("torrentSettingsFeedList"));
+  feedList->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
+  feedList->setMinimumHeight(100);
+  for (const auto& feedUrl : m_settings.feedUrls) feedList->addItem(feedUrl);
+  if (feedList->count() == 0 && !m_settings.feedUrl.isEmpty()) {
+    feedList->addItem(m_settings.feedUrl);
+  }
+  auto activeFeedIndex = feedList->findItems(m_settings.feedUrl, Qt::MatchExactly);
+  if (!activeFeedIndex.isEmpty()) feedList->setCurrentItem(activeFeedIndex.front());
+
+  auto* feedEdit = new QLineEdit(&dialog);
   feedEdit->setObjectName(QStringLiteral("torrentSettingsFeedUrlEdit"));
-  form->addRow(tr("RSS feed URL"), feedEdit);
+  feedEdit->setPlaceholderText(tr("Add an HTTP(S) RSS feed URL"));
+  auto* addFeedButton = new QPushButton(tr("Add"), &dialog);
+  addFeedButton->setObjectName(QStringLiteral("torrentSettingsAddFeedButton"));
+  auto* removeFeedButton = new QPushButton(tr("Remove"), &dialog);
+  removeFeedButton->setObjectName(QStringLiteral("torrentSettingsRemoveFeedButton"));
+
+  auto* feedWidget = new QWidget(&dialog);
+  auto* feedLayout = new QVBoxLayout(feedWidget);
+  feedLayout->setContentsMargins(0, 0, 0, 0);
+  feedLayout->addWidget(feedList);
+  auto* feedButtonLayout = new QHBoxLayout();
+  feedButtonLayout->setContentsMargins(0, 0, 0, 0);
+  feedButtonLayout->addWidget(feedEdit);
+  feedButtonLayout->addWidget(addFeedButton);
+  feedButtonLayout->addWidget(removeFeedButton);
+  feedLayout->addLayout(feedButtonLayout);
+  form->addRow(tr("RSS feeds"), feedWidget);
 
   auto* searchEdit = new QLineEdit(m_settings.searchUrl, &dialog);
   searchEdit->setObjectName(QStringLiteral("torrentSettingsSearchUrlEdit"));
@@ -800,15 +956,44 @@ void TorrentsWidget::showSettings() {
         QFileDialog::Option::ShowDirsOnly | QFileDialog::Option::DontResolveSymlinks);
     if (!directory.isEmpty()) directoryEdit->setText(directory);
   });
+  const auto addFeed = [&] {
+    const auto feedUrl = feedEdit->text().trimmed();
+    if (!isHttpUrl(QUrl::fromUserInput(feedUrl))) {
+      errorLabel->setText(QObject::tr("Use a valid HTTP(S) feed URL."));
+      return;
+    }
+    for (int row = 0; row < feedList->count(); ++row) {
+      if (feedList->item(row)->text().compare(feedUrl, Qt::CaseInsensitive) == 0) {
+        feedList->setCurrentRow(row);
+        feedEdit->clear();
+        errorLabel->clear();
+        return;
+      }
+    }
+    feedList->addItem(feedUrl);
+    feedList->setCurrentRow(feedList->count() - 1);
+    feedEdit->clear();
+    errorLabel->clear();
+  };
+  connect(addFeedButton, &QPushButton::clicked, &dialog, addFeed);
+  connect(feedEdit, &QLineEdit::returnPressed, &dialog, addFeed);
+  connect(feedList, &QListWidget::currentRowChanged, removeFeedButton,
+          [removeFeedButton](const int row) { removeFeedButton->setEnabled(row >= 0); });
+  connect(removeFeedButton, &QPushButton::clicked, &dialog, [feedList] {
+    const auto row = feedList->currentRow();
+    if (row < 0) return;
+    delete feedList->takeItem(row);
+    if (feedList->count() > 0) feedList->setCurrentRow(std::min(row, feedList->count() - 1));
+  });
+  removeFeedButton->setEnabled(feedList->currentRow() >= 0);
   connect(autoRefreshCheck, &QCheckBox::toggled, intervalSpin, &QSpinBox::setEnabled);
   connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
   connect(buttonBox, &QDialogButtonBox::accepted, &dialog, [&] {
-    const auto feedUrl = QUrl::fromUserInput(feedEdit->text().trimmed());
     const auto searchUrl =
         QUrl::fromUserInput(QString(searchEdit->text().trimmed())
                                 .replace(QStringLiteral("%title%"), QStringLiteral("torrent")));
-    if (!isHttpUrl(feedUrl)) {
-      errorLabel->setText(tr("Use a valid HTTP(S) feed URL."));
+    if (feedList->count() == 0) {
+      errorLabel->setText(tr("Add at least one HTTP(S) feed URL."));
       return;
     }
     if (!searchEdit->text().contains(QStringLiteral("%title%")) || !isHttpUrl(searchUrl)) {
@@ -821,7 +1006,12 @@ void TorrentsWidget::showSettings() {
     }
 
     auto settings = m_settings;
-    settings.feedUrl = feedEdit->text().trimmed();
+    settings.feedUrls.clear();
+    for (int row = 0; row < feedList->count(); ++row) {
+      settings.feedUrls.append(feedList->item(row)->text().trimmed());
+    }
+    const auto activeRow = std::clamp(feedList->currentRow(), 0, feedList->count() - 1);
+    settings.feedUrl = settings.feedUrls.at(activeRow);
     settings.searchUrl = searchEdit->text().trimmed();
     settings.downloadDirectory = directoryEdit->text().trimmed();
     settings.autoRefresh = autoRefreshCheck->isChecked();
@@ -837,7 +1027,7 @@ void TorrentsWidget::showSettings() {
       return;
     }
 
-    m_feedUrlEdit->setText(settings.feedUrl);
+    updateFeedSelector();
     m_settings = settings;
     m_statusIsError = false;
     renderItems();

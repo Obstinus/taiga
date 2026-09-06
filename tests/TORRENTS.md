@@ -5,9 +5,9 @@ default BitTorrent client. It does not implement a BitTorrent transfer engine.
 
 ## Use
 
-Open **Torrents**, then refresh the feed or enter a search. The **Torrents** action
-on an anime searches for its preferred title. Feed and search URLs are configurable;
-the search URL uses `%title%` for the encoded query.
+Open **Torrents**, choose the active feed from the toolbar and refresh it or enter a
+search. Add or remove RSS feeds in **Settings**; the Nyaa feed remains the default,
+and the search URL uses `%title%` for the encoded query.
 
 Filter releases by title, release group or resolution. Check releases and open
 them to download their `.torrent` files and hand them to the default client.
@@ -22,6 +22,13 @@ directory. Torrent files default to `data/torrents/`. This state is separate fro
 the anime database and service accounts. Malformed existing state is not overwritten.
 
 Automatic refresh is optional and runs after the Torrents page has been initialized.
+When the RSS item includes an info hash, Taiga checks the public SeaDex API at
+`releases.moe` and colors matching rows using the same convention as NyaaBlue:
+best releases are blue and alternative releases are orange. A SeaDex timeout or
+API error leaves the feed usable without coloring.
+The SeaDex RSS feed itself exposes opaque release IDs; Taiga replaces them with
+file and release-group metadata from the API and omits entries whose hash is redacted.
+
 It does not automatically open or download releases. Downloads are asynchronous;
 HTTP failures, timeouts, oversized responses and invalid metainfo are reported.
 Downloaded file names are sanitized and unique, so existing files are not overwritten.

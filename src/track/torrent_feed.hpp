@@ -34,6 +34,7 @@ namespace track {
 struct TorrentItem {
   QString id;
   QString title;
+  QString infoHash;
   QUrl downloadUrl;
   QUrl infoUrl;
   QString size;
