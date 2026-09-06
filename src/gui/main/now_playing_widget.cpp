@@ -148,10 +148,12 @@ void NowPlayingWidget::refresh() {
 
   if (updated) {
     m_timerLabel->setText("List updated");
+  } else if (!media || media->duration.count() <= 0) {
+    m_timerLabel->setText("Waiting for media duration");
   } else {
     const auto remaining = std::max<std::chrono::milliseconds>(
-        std::chrono::milliseconds{0}, track::media::kListUpdateDelay - position);
-    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(remaining).count();
+        std::chrono::milliseconds{0}, track::media::listUpdatePosition(media->duration) - position);
+    const auto seconds = std::chrono::ceil<std::chrono::seconds>(remaining).count();
     m_timerLabel->setText(
         u"List update in <b style=\"font-weight: 600;\">%1:%2</b>"_s
             .arg(seconds / 60, 2, 10, QChar('0'))

@@ -60,7 +60,8 @@ Qt::ColorScheme Settings::appColorScheme() const {
 }
 
 std::vector<std::string> Settings::disabledMediaPlayers() const {
-  return value("recognition.mediaPlayers.disabled").toJsonArray().toVariantList() |
+  return value("recognition.mediaPlayers.disabled", QJsonArray{QStringLiteral("Brave")})
+             .toJsonArray().toVariantList() |
          std::views::transform([](const QVariant& v) { return v.toString().toStdString(); }) |
          std::ranges::to<std::vector>();
 }

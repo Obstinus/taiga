@@ -31,7 +31,9 @@
 
 namespace track::media {
 
-inline constexpr auto kListUpdateDelay = std::chrono::minutes{2};
+inline constexpr std::chrono::milliseconds listUpdatePosition(std::chrono::milliseconds duration) {
+  return duration - duration / 20;  // 95%, leaving room for ending credits.
+}
 
 class Detection final : public QObject {
   Q_OBJECT

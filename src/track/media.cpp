@@ -154,17 +154,15 @@ void Detection::poll() {
              << QString::fromStdString(episode.element(anitomy::ElementKind::Title))
              << QString::fromStdString(episode.element(anitomy::ElementKind::Episode))
              << "anime ID:" << animeId;
-    saveCurrentEpisode();
     currentEpisode_ = episode;
     emit currentEpisodeChanged(episode);
   }
 
   // Apply completion to the episode identified above, including short videos.
   // Keep it visible while the player remains registered at the end.
-  const auto duration = currentMedia_->duration.count();
-  const auto position = currentMedia_->position.count();
-  const bool finished = duration > 0 && position >= duration - duration / 20;
-  if (currentEpisode_ && (currentMedia_->position >= kListUpdateDelay || finished)) {
+  const auto duration = currentMedia_->duration;
+  if (currentEpisode_ && duration.count() > 0 &&
+      currentMedia_->position >= listUpdatePosition(duration)) {
     saveCurrentEpisode();
   }
 }
@@ -181,8 +179,6 @@ void Detection::setCurrentEpisodeAnimeId(int animeId) {
 }
 
 void Detection::reset() {
-  saveCurrentEpisode();
-
   currentPlayer_.reset();
   currentMedia_.reset();
   currentWindowHandle_ = nullptr;
