@@ -256,7 +256,6 @@ void MainWindow::initNowPlaying() {
 
   ui_->centralWidget->layout()->addWidget(m_nowPlayingWidget);
   m_nowPlayingWidget->setDisplayEnabled(ui_->actionToggleNowPlaying->isChecked());
-  m_nowPlayingWidget->hide();
 }
 
 void MainWindow::initPage(MainWindowPage page) {

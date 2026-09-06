@@ -79,6 +79,10 @@ NowPlayingWidget::NowPlayingWidget(QWidget* parent) : QFrame(parent) {
               reset();
             }
           });
+
+  if (const auto episode = track::media::detection()->getCurrentEpisode()) {
+    setPlaying(*episode);
+  }
 }
 
 void NowPlayingWidget::reset() {

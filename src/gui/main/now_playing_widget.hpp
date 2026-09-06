@@ -51,7 +51,7 @@ private:
 
   std::optional<Anime> m_anime;
   std::optional<track::Episode> m_episode;
-  bool m_displayEnabled = false;
+  bool m_displayEnabled = true;
 };
 
 }  // namespace gui
