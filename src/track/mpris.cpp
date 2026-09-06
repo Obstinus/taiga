@@ -79,7 +79,6 @@ bool isDisabled(const QString& candidate, const std::vector<std::string>& disabl
 
 std::optional<anisthesia::MediaInfo> getMediaInfo(const QVariantMap& metadata) {
   const auto uri = metadataString(metadata, u"xesam:url"_s);
-  const auto title = metadataString(metadata, u"xesam:title"_s);
 
   if (!uri.isEmpty()) {
     const QUrl url{uri};
@@ -89,15 +88,7 @@ std::optional<anisthesia::MediaInfo> getMediaInfo(const QVariantMap& metadata) {
     }
   }
 
-  // Streaming players generally expose a useful episode title but an opaque URL.
-  if (!title.isEmpty()) {
-    return anisthesia::MediaInfo{anisthesia::MediaInfoType::Title, title.toStdString()};
-  }
-
-  if (!uri.isEmpty()) {
-    return anisthesia::MediaInfo{anisthesia::MediaInfoType::Url, uri.toStdString()};
-  }
-
+  // Only local files participate in detection, regardless of player identity.
   return std::nullopt;
 }
 

@@ -154,13 +154,18 @@ std::vector<Service> registerFakeServices() {
 
   std::vector<Service> services;
   services.push_back(registerService(kServicePrefix + QStringLiteral("local"), "LocalPlayer",
-                                     "Playing", std::move(localMetadata), 600000));
+                                     "Playing", localMetadata, 600000));
   services.push_back(registerService(kServicePrefix + QStringLiteral("stream"), "StreamPlayer",
                                      "Playing", streamMetadata, 3456789));
   services.push_back(registerService(kServicePrefix + QStringLiteral("paused"), "PausedPlayer",
-                                     "Paused", streamMetadata, 2222000));
+                                     "Paused", localMetadata, 2222000));
   services.push_back(registerService(kServicePrefix + QStringLiteral("disabled"), "DisabledPlayer",
-                                     "Playing", streamMetadata, 1000000));
+                                     "Playing", localMetadata, 1000000));
+  services.push_back(registerService(kServicePrefix + QStringLiteral("browser"), "brave-origin",
+                                     "Playing", streamMetadata));
+  services.push_back(registerService(kServicePrefix + QStringLiteral("titleOnly"), "Browser",
+                                     "Playing", {{QStringLiteral("xesam:title"),
+                                                  QStringLiteral("Anime Title - 01")}}));
   return services;
 }
 
@@ -182,14 +187,9 @@ void runClient() {
   expect(local->media.position == std::chrono::milliseconds{600},
          "media position was not converted");
 
-  const auto* stream = findResult(results, "stream");
-  expect(stream, "stream player was not detected");
-  expect(stream->player.name == "StreamPlayer", "stream player name is incorrect");
-  expect(stream->media.information.size() == 1, "stream metadata count is incorrect");
-  expect(stream->media.information.front().type == anisthesia::MediaInfoType::Title,
-         "stream media type is incorrect");
-  expect(stream->media.information.front().value == "Streamed Anime - 02",
-         "stream title was not read");
+  expect(!findResult(unfiltered, "stream"), "remote stream was incorrectly detected");
+  expect(!findResult(unfiltered, "browser"), "browser video was incorrectly detected");
+  expect(!findResult(unfiltered, "titleOnly"), "title-only media was incorrectly detected");
 
   const auto* paused = findResult(results, "paused");
   expect(paused, "paused player was not detected");
