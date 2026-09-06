@@ -172,8 +172,8 @@ std::vector<Result> getResults(const std::vector<std::string>& disabledPlayers) 
   };
 
   std::ranges::sort(results, [&](const Result& lhs, const Result& rhs) {
-    if (isPlaying(lhs) != isPlaying(rhs)) return isPlaying(lhs);
     if (isLocalFile(lhs) != isLocalFile(rhs)) return isLocalFile(lhs);
+    if (isPlaying(lhs) != isPlaying(rhs)) return isPlaying(lhs);
     return lhs.service < rhs.service;
   });
   return results;

@@ -55,6 +55,7 @@ signals:
 private:
   void poll();
   void reset();
+  void saveCurrentEpisode();
 
   bool hasEpisodeChanged(const Episode& episode) const;
 

@@ -23,6 +23,8 @@
 
 #include "media/anime.hpp"
 #include "media/anime_db.hpp"
+#include "media/anime_list_utils.hpp"
+#include "sync/service.hpp"
 #include "taiga/settings.hpp"
 #include "track/episode.hpp"
 #include "track/media_player.hpp"
@@ -128,6 +130,16 @@ void Detection::poll() {
     return;
   }
 
+  // MPRIS players may remain registered as paused after reaching the end.
+  // Treat a position at the end as a completed episode so it is saved even
+  // when no stopped event is sent.
+  const auto duration = currentMedia_->duration.count();
+  const auto position = currentMedia_->position.count();
+  if (duration > 0 && position * 100 >= duration * 95) {
+    reset();
+    return;
+  }
+
   const auto mediaInfo = currentMedia_->information.front();
   auto episode = [&mediaInfo]() {
     if (mediaInfo.type == anisthesia::MediaInfoType::File) {
@@ -152,6 +164,7 @@ void Detection::poll() {
              << QString::fromStdString(episode.element(anitomy::ElementKind::Title))
              << QString::fromStdString(episode.element(anitomy::ElementKind::Episode))
              << "anime ID:" << animeId;
+    saveCurrentEpisode();
     currentEpisode_ = episode;
     emit currentEpisodeChanged(episode);
   }
@@ -169,6 +182,8 @@ void Detection::setCurrentEpisodeAnimeId(int animeId) {
 }
 
 void Detection::reset() {
+  saveCurrentEpisode();
+
   currentPlayer_.reset();
   currentMedia_.reset();
   currentWindowHandle_ = nullptr;
@@ -178,6 +193,33 @@ void Detection::reset() {
     currentEpisode_.reset();
     emit currentEpisodeChanged(std::nullopt);
   }
+}
+
+void Detection::saveCurrentEpisode() {
+  if (!currentEpisode_ || !taiga::settings.syncEnabled()) return;
+
+  const auto animeId = currentEpisode_->animeId();
+  if (animeId == anime::kUnknownId) return;
+
+  int episodeNumber = 0;
+  for (const auto& value : currentEpisode_->elements(anitomy::ElementKind::Episode)) {
+    bool ok = false;
+    const auto number = QString::fromStdString(value).toInt(&ok);
+    if (ok) episodeNumber = std::max(episodeNumber, number);
+  }
+  if (episodeNumber <= 0) return;
+
+  const auto existing = anime::db.entry(animeId);
+  auto entry = existing ? *existing : ListEntry{.anime_id = animeId};
+  if (entry.status == anime::list::Status::Completed && !entry.rewatching) return;
+  if (episodeNumber <= entry.watched_episodes) return;
+
+  if (entry.status == anime::list::Status::NotInList) {
+    entry.status = anime::list::Status::Watching;
+  }
+  entry.watched_episodes = episodeNumber;
+  anime::list::save(entry);
+  sync::synchronize();
 }
 
 bool Detection::hasEpisodeChanged(const Episode& episode) const {
