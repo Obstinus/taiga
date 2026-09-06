@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   QCoreApplication app(argc, argv);
 
   const auto youtubeUrl = QStringLiteral("https://www.youtube.com/watch?v=episode");
-  check(track::recognition::stream::providerForUrl(youtubeUrl).value_or({}) == "YouTube",
+  check(track::recognition::stream::providerForUrl(youtubeUrl).value_or(QString{}) == "YouTube",
         QStringLiteral("YouTube provider was not recognized"));
   check(track::recognition::stream::normalizeTitle(
             youtubeUrl, QStringLiteral("[Group] Example - 01 - YouTube")) ==
@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
         QStringLiteral("YouTube title suffix was not removed"));
 
   const auto crunchyrollUrl = QStringLiteral("https://www.crunchyroll.com/watch/episode");
-  check(track::recognition::stream::providerForUrl(crunchyrollUrl).value_or({}) == "Crunchyroll",
+  check(track::recognition::stream::providerForUrl(crunchyrollUrl).value_or(QString{}) == "Crunchyroll",
         QStringLiteral("Crunchyroll provider was not recognized"));
   check(track::recognition::stream::normalizeTitle(
             crunchyrollUrl, QStringLiteral("Example - Crunchyroll")) == QStringLiteral("Example"),

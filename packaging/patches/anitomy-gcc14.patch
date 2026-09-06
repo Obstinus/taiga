@@ -1,0 +1,13 @@
+diff --git a/include/anitomy/detail/tokenizer.hpp b/include/anitomy/detail/tokenizer.hpp
+--- a/include/anitomy/detail/tokenizer.hpp
++++ b/include/anitomy/detail/tokenizer.hpp
+@@ -136,7 +136,8 @@ private:
+     static constexpr auto has_candidates = [](std::string_view prefix) {
+       static constexpr auto keys = keywords | std::views::keys;
+       const auto starts_with = [&prefix](std::string_view keyword) {
+-        return std::ranges::starts_with(keyword, prefix, equal_to);
++        return keyword.size() >= prefix.size() &&
++               std::ranges::equal(prefix, keyword.substr(0, prefix.size()), equal_to);
+       };
+       return std::ranges::find_if(keys, starts_with) != keys.end();
+     };

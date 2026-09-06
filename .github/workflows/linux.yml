@@ -19,6 +19,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Patch anitomy for GCC 14
+        run: git -C deps/anitomy apply "$GITHUB_WORKSPACE/packaging/patches/anitomy-gcc14.patch"
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
