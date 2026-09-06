@@ -2,12 +2,15 @@ name: Linux
 
 on:
   push:
-    branches: [linux-port]
+    branches:
+      - linux-port
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -77,3 +80,26 @@ jobs:
           name: taiga-linux-packages
           path: build/packages/*
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "Publishing release for tag: $tag"
+          ls -lh build/packages
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists. Updating release assets..."
+            gh release upload "$tag" build/packages/* --clobber
+          else
+            echo "Creating release $tag..."
+            gh release create "$tag" build/packages/* \
+              --title "$tag" \
+              --generate-notes || {
+                echo "Release creation failed or already exists. Attempting upload..."
+                gh release upload "$tag" build/packages/* --clobber
+              }
+          fi
