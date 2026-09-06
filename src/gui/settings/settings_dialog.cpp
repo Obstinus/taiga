@@ -30,6 +30,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPixmapCache>
+#include <QPointer>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStyleHints>
@@ -147,23 +148,53 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent), ui_(new Ui::S
       taiga::settings.setService(currentService.toStdString());
     }
   });
-  connect(authenticate, &QPushButton::clicked, this, [this, serviceBox, refreshAccount] {
+  const auto signIn = [this, serviceBox, authenticate, refreshAccount](bool replaceToken) {
     const auto service = sync::serviceIdFromSlug(serviceBox->currentData().toString());
-    if (service == sync::ServiceId::AniList && !sync::isUserAuthenticated()) {
-      QDesktopServices::openUrl(QUrl{QString::fromStdString(sync::anilist::requestTokenUrl())});
-
-      bool ok = false;
-      const auto token =
-          QInputDialog::getText(this, tr("AniList authorization"),
-                                tr("Paste the access token shown after logging in to AniList:"),
-                                QLineEdit::EchoMode::Password, {}, &ok)
-              .trimmed();
-      if (!ok || token.isEmpty()) return;
-      taiga::accounts.setAnilistToken(token.toStdString());
+    if (service != sync::ServiceId::AniList) {
+      sync::authenticateUser();
+      return;
     }
-    sync::authenticateUser();
-    refreshAccount();
-  });
+    authenticate->setEnabled(false);
+    QPointer<SettingsDialog> guard(this);
+    taiga::accounts.loadAnilistToken([guard, serviceBox, authenticate, refreshAccount,
+                                      replaceToken] {
+      if (!guard) return;
+      authenticate->setEnabled(true);
+      if (serviceBox->currentData().toString() != "anilist") return;
+      if (replaceToken || taiga::accounts.anilistToken().empty()) {
+        QDesktopServices::openUrl(QUrl{QString::fromStdString(sync::anilist::requestTokenUrl())});
+        bool ok = false;
+        const auto token =
+            QInputDialog::getText(guard, tr("AniList authorization"),
+                                  tr("Paste the access token shown after logging in to AniList:"),
+                                  QLineEdit::Password, {}, &ok)
+                .trimmed();
+        if (!guard || !ok || token.isEmpty()) return;
+        authenticate->setEnabled(false);
+        taiga::accounts.storeAnilistToken(token.toStdString(),
+                                          [guard, serviceBox, authenticate, refreshAccount](bool) {
+                                            if (!guard) return;
+                                            authenticate->setEnabled(true);
+                                            if (serviceBox->currentData().toString() != "anilist")
+                                              return;
+                                            sync::authenticateUser();
+                                            refreshAccount();
+                                          });
+        return;
+      }
+      sync::authenticateUser();
+      refreshAccount();
+    });
+  };
+  connect(authenticate, &QPushButton::clicked, this, [signIn] { signIn(false); });
+  auto replaceToken = new QPushButton(tr("Replace AniList token..."), ui_->accountsPage);
+  accountActions->insertWidget(2, replaceToken);
+  replaceToken->setVisible(serviceBox->currentData().toString() == "anilist");
+  connect(serviceBox, qOverload<int>(&QComboBox::currentIndexChanged), this,
+          [serviceBox, replaceToken](int) {
+            replaceToken->setVisible(serviceBox->currentData().toString() == "anilist");
+          });
+  connect(replaceToken, &QPushButton::clicked, this, [signIn] { signIn(true); });
   connect(synchronize, &QPushButton::clicked, this, [refreshAccount] {
     sync::synchronize();
     refreshAccount();

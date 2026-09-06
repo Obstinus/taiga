@@ -19,7 +19,10 @@
 #pragma once
 
 #include <QString>
+#include <functional>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "base/settings.hpp"
 
@@ -49,6 +52,8 @@ public:
   sync::anilist::RatingSystem anilistRatingSystem() const;
   std::string anilistUsername() const;
   std::string anilistToken() const;
+  void loadAnilistToken(std::function<void()> ready = {});
+  void storeAnilistToken(const std::string& token, std::function<void(bool)> done = {});
 
   bool kitsuAuthenticated() const;
   std::string kitsuAccessToken() const;
@@ -89,9 +94,18 @@ public:
 
 signals:
   void authenticationChanged(bool authenticated);
+  void credentialStorageError(QString message);
 
 private:
   QString fileName() const override;
+  bool protectCredentials() const;
+  bool removeLegacyAnilistToken() const;
+  std::optional<std::string> anilistToken_;
+  bool anilistAuthenticated_ = false;
+  bool loadingToken_ = false;
+  bool savingToken_ = false;
+  std::vector<std::function<void()>> pendingStores_;
+  std::vector<std::function<void()>> tokenWaiters_;
 };
 
 inline Accounts accounts;

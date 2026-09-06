@@ -21,6 +21,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QLocalSocket>
+#include <QMessageBox>
 #include <QTimer>
 #include <QTranslator>
 #include <chrono>
@@ -34,6 +35,7 @@
 #include "media/anime_db.hpp"
 #include "media/anime_history.hpp"
 #include "sync/queue.hpp"
+#include "taiga/accounts.hpp"
 #include "taiga/config.h"
 #include "taiga/path.hpp"
 #include "taiga/settings.hpp"
@@ -79,7 +81,13 @@ int Application::run() {
   connect(&local_server_, &QLocalServer::newConnection, this, &Application::onNewConnection);
   local_server_.listen(TAIGA_APP_NAME);
 
+  connect(&accounts, &Accounts::credentialStorageError, this, [this](const QString& message) {
+    QTimer::singleShot(0, this, [this, message] {
+      QMessageBox::warning(window_, tr("Credential storage"), message);
+    });
+  });
   taiga::settings.init();
+  accounts.loadAnilistToken();
   anime::db.init();
   anime::history.init();
   sync::queue.init();

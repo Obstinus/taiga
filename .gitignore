@@ -3,3 +3,8 @@
 /.vscode/
 /bin/
 /build/
+
+# Runtime credentials must never be committed, including nonportable copies.
+**/accounts.json
+**/accounts.json.*
+/data/

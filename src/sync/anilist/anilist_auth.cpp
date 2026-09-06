@@ -30,49 +30,51 @@
 namespace sync::anilist {
 
 void Service::authenticateUser() {
-  const auto token = taiga::accounts.anilistToken();
-  if (token.empty()) {
-    QDesktopServices::openUrl(QUrl{QString::fromStdString(requestTokenUrl())});
-    emit errorOccurred(
-        "Open AniList authorization in your browser and enter the token in Settings.");
-    emit authenticationCompleted(false);
-    return;
-  }
+  taiga::accounts.loadAnilistToken([this] {
+    const auto token = taiga::accounts.anilistToken();
+    if (token.empty()) {
+      QDesktopServices::openUrl(QUrl{QString::fromStdString(requestTokenUrl())});
+      emit errorOccurred(
+          "Open AniList authorization in your browser and enter the token in Settings.");
+      emit authenticationCompleted(false);
+      return;
+    }
 
-  api_.setBearerToken(QByteArray::fromStdString(token));
+    api_.setBearerToken(QByteArray::fromStdString(token));
 
-  const QJsonDocument data{QJsonObject{
-      {"query", gql("Viewer")},
-  }};
+    const QJsonDocument data{QJsonObject{
+        {"query", gql("Viewer")},
+    }};
 
-  const auto callback = [this](QRestReply& reply) {
-    if (isError(reply)) {
-      if (reply.httpStatus() == 401) {
-        QDesktopServices::openUrl(QUrl{QString::fromStdString(requestTokenUrl())});
+    const auto callback = [this](QRestReply& reply) {
+      if (isError(reply)) {
+        if (reply.httpStatus() == 401) {
+          QDesktopServices::openUrl(QUrl{QString::fromStdString(requestTokenUrl())});
+        }
+        handleError(*this, reply);
+        emit authenticationCompleted(false);
+        return;
       }
-      handleError(*this, reply);
-      emit authenticationCompleted(false);
-      return;
-    }
 
-    const auto viewer = reply.readJson().and_then([](const QJsonDocument& json) {
-      return std::make_optional(json["data"]["Viewer"].toObject());
-    });
+      const auto viewer = reply.readJson().and_then([](const QJsonDocument& json) {
+        return std::make_optional(json["data"]["Viewer"].toObject());
+      });
 
-    if (!viewer) {
-      handleError(*this, reply, "Could not parse user object.");
-      emit authenticationCompleted(false);
-      return;
-    }
+      if (!viewer) {
+        handleError(*this, reply, "Could not parse user object.");
+        emit authenticationCompleted(false);
+        return;
+      }
 
-    taiga::accounts.setAnilistUsername((*viewer)["name"].toString().toStdString());
-    taiga::accounts.setAnilistRatingSystem(
-        (*viewer)["mediaListOptions"]["scoreFormat"].toString().toStdString());
+      taiga::accounts.setAnilistUsername((*viewer)["name"].toString().toStdString());
+      taiga::accounts.setAnilistRatingSystem(
+          (*viewer)["mediaListOptions"]["scoreFormat"].toString().toStdString());
 
-    emit authenticationCompleted(true);
-  };
+      emit authenticationCompleted(true);
+    };
 
-  manager_.post(api_.createRequest(), data, this, callback);
+    manager_.post(api_.createRequest(), data, this, callback);
+  });
 }
 
 }  // namespace sync::anilist
