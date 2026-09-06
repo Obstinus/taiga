@@ -511,7 +511,7 @@ void MainWindow::initStatusbar() {
     const auto entry = anime::db.entry(animeId);
     if (!item || !entry) return;
 
-    const auto title = anime::preferredTitle(*item);
+    const auto title = QString::fromStdString(anime::preferredTitle(*item));
 
     QString text;
     if (entry->pending_delete) {
@@ -534,7 +534,8 @@ void MainWindow::initStatusbar() {
 
     m_statusBarController->showMessage({
         .source = StatusBarController::Source::Sync,
-        .text = tr("%1 is queued for update.").arg(anime::preferredTitle(*item)),
+        .text = tr("%1 is queued for update.")
+                    .arg(QString::fromStdString(anime::preferredTitle(*item))),
         .spin = false,
     });
   });
@@ -712,7 +713,7 @@ void MainWindow::playNextEpisode() {
   if (!number || !item || !track::playEpisode(*animeId, *number)) {
     const auto message = item ? tr("Could not find episode #%1 (%2).")
                                     .arg(number.value_or(0))
-                                    .arg(anime::preferredTitle(*item))
+                                    .arg(QString::fromStdString(anime::preferredTitle(*item)))
                               : tr("Could not find the selected anime episode.");
     statusBarController()->showMessage({
         .source = StatusBarController::Source::Playback,
@@ -747,7 +748,8 @@ void MainWindow::playRandomAnime() {
   const auto item = anime::db.item(animeId);
   if (!number || !item || !track::playEpisode(animeId, *number)) {
     const auto message =
-        item ? tr("Could not find a playable episode for %1.").arg(anime::preferredTitle(*item))
+        item ? tr("Could not find a playable episode for %1.")
+                   .arg(QString::fromStdString(anime::preferredTitle(*item)))
              : tr("Could not find a playable anime.");
     statusBarController()->showMessage({
         .source = StatusBarController::Source::Playback,

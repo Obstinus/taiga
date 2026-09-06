@@ -104,7 +104,9 @@ void ListViewBase::playNextEpisode(const QModelIndex& index) {
 
   mainWindow()->statusBarController()->showMessage({
       .source = StatusBarController::Source::Playback,
-      .text = tr("Could not find episode #%1 (%2).").arg(*number).arg(anime::preferredTitle(*item)),
+      .text = tr("Could not find episode #%1 (%2).")
+                  .arg(*number)
+                  .arg(QString::fromStdString(anime::preferredTitle(*item))),
       .spin = false,
   });
 }

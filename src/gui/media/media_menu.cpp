@@ -228,7 +228,8 @@ void MediaMenu::openFolder() const {
   }
 
   QMessageBox::information(nullptr, tr("Open Folder"),
-                           tr("Could not find folder for %1.").arg(anime::preferredTitle(item)));
+                           tr("Could not find folder for %1.")
+                               .arg(QString::fromStdString(anime::preferredTitle(item))));
 }
 
 void MediaMenu::playEpisode(int number) const {
@@ -241,7 +242,9 @@ void MediaMenu::playEpisode(int number) const {
 
   mainWindow()->statusBarController()->showMessage({
       .source = StatusBarController::Source::Playback,
-      .text = tr("Could not find episode #%1 (%2).").arg(number).arg(anime::preferredTitle(item)),
+      .text = tr("Could not find episode #%1 (%2).")
+                  .arg(number)
+                  .arg(QString::fromStdString(anime::preferredTitle(item))),
       .spin = false,
   });
 }
@@ -262,7 +265,9 @@ void MediaMenu::playRandomEpisode() const {
 
   mainWindow()->statusBarController()->showMessage({
       .source = StatusBarController::Source::Playback,
-      .text = tr("Could not find episode #%1 (%2).").arg(*number).arg(anime::preferredTitle(item)),
+      .text = tr("Could not find episode #%1 (%2).")
+                  .arg(*number)
+                  .arg(QString::fromStdString(anime::preferredTitle(item))),
       .spin = false,
   });
 }

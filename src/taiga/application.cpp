@@ -64,7 +64,7 @@ int Application::run() {
 
   initLogger();
 
-  const auto version = taiga::version().to_string();
+  const auto version = QString::fromStdString(taiga::version().to_string());
   const auto fileInfo = QFileInfo{QCoreApplication::applicationFilePath()};
   const auto lastModified = fileInfo.lastModified().toString(Qt::DateFormat::ISODate);
   qDebug() << u"Version %1 (%2)"_s.arg(version).arg(lastModified);
@@ -149,7 +149,7 @@ void Application::activatePreviousInstance() {
 }
 
 void Application::initLogger() const {
-  const auto directory = u"%1/logs"_s.arg(get_data_path());
+  const auto directory = u"%1/logs"_s.arg(QString::fromStdString(get_data_path()));
   QDir().mkpath(directory);
 
   const auto date = QDate::currentDate().toString(Qt::DateFormat::ISODate);
