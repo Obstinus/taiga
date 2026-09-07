@@ -57,7 +57,8 @@ jobs:
             -DTAIGA_BUILD_TORRENT_TESTS=ON
 
       - name: Build
-        run: cmake --build build --parallel
+        # Anitomy is excluded from ALL, but its tests are registered with CTest.
+        run: cmake --build build --parallel --target all anitomy-tests
 
       - name: Validate desktop metadata
         run: |

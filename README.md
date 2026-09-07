@@ -103,9 +103,9 @@ cmake -S . -B build -G Ninja \
   -DTAIGA_ENABLE_TRANSLATIONS=OFF \
   -DTAIGA_BUILD_MPRIS_PROBE=ON \
   -DTAIGA_BUILD_TORRENT_TESTS=ON
-cmake --build build --parallel 4
+cmake --build build --parallel 4 --target all anitomy-tests
 dbus-run-session -- ./bin/taiga-mpris-probe --self-test
-ctest --test-dir build --output-on-failure -R 'stream|torrent'
+ctest --test-dir build --output-on-failure
 bash tests/run_accounts_security_test.sh --keyring
 ```
 
