@@ -35,7 +35,7 @@ build() {
     -DTAIGA_ENABLE_TRANSLATIONS=ON \
     -DTAIGA_BUILD_MPRIS_PROBE=OFF \
     -DTAIGA_BUILD_TORRENT_TESTS=OFF
-  cmake --build build
+  cmake --build build --parallel 10
 }
 
 package() {
