@@ -209,6 +209,25 @@ endif()
 add_subdirectory(gui)
 add_subdirectory(resources)
 
+if (TAIGA_ENABLE_PCH)
+	# Keep separate PCHs: the application and GUI have different compile definitions.
+	foreach(target IN ITEMS taiga taiga-gui)
+		target_precompile_headers(${target} PRIVATE
+			<algorithm>
+			<optional>
+			<ranges>
+			<string>
+			<vector>
+			<QList>
+			<QObject>
+			<QString>
+			<QJsonObject>
+			<QUrl>
+		)
+	endforeach()
+	target_precompile_headers(taiga-gui PRIVATE <QWidget>)
+endif()
+
 if (TAIGA_BUILD_TORRENT_TESTS)
 	add_executable(taiga-stream-test
 		${CMAKE_SOURCE_DIR}/tests/stream_test.cpp

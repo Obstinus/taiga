@@ -10,7 +10,9 @@ target_link_libraries(taiga-deps
 )
 
 add_subdirectory(anisthesia)
-add_subdirectory(anitomy)
+# Taiga needs the parser library, not the standalone CLI and upstream tests.
+# Those targets remain available when explicitly requested.
+add_subdirectory(anitomy EXCLUDE_FROM_ALL)
 add_subdirectory(nstd)
 add_subdirectory(semaver)
 add_subdirectory(utf8proc)

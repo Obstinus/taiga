@@ -23,6 +23,7 @@ include(GNUInstallDirs)
 
 option(TAIGA_PORTABLE "Portable mode" ON)
 option(TAIGA_ENABLE_TRANSLATIONS "Build Qt translation files" ON)
+option(TAIGA_ENABLE_PCH "Precompile common C++ and Qt headers" ON)
 option(TAIGA_BUILD_MPRIS_PROBE "Build the Linux MPRIS integration probe" OFF)
 option(TAIGA_BUILD_TORRENT_TESTS "Build isolated torrent integration tests" OFF)
 

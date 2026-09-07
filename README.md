@@ -61,6 +61,11 @@ configuring. Portable mode is enabled by default and stores application data in
 data location instead. Enable translations with `-DTAIGA_ENABLE_TRANSLATIONS=ON`
 when LinguistTools is installed.
 
+Common C++ and Qt headers are precompiled by default to speed up application
+and GUI compilation. Disable this with `-DTAIGA_ENABLE_PCH=OFF` when checking
+header dependencies or using tools that do not support precompiled headers.
+Keep the build directory between builds so Ninja only rebuilds changed files.
+
 Run Taiga and the player in the same desktop session. The player must expose an
 MPRIS interface; mpv needs an MPRIS integration such as mpv-mpris. Detection also
 needs matching catalog entries in Taiga's database. Automatic progress updates

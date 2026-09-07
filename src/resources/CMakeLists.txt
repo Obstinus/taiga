@@ -1,6 +1,8 @@
-add_library(taiga-resources STATIC)
+add_library(taiga-resources OBJECT)
 
-target_sources(taiga-resources PUBLIC
+# Link the resource objects directly so their initializers are retained, and
+# avoid propagating the qrc sources to the executable for a second compilation.
+target_sources(taiga-resources PRIVATE
 	deps.qrc
 	gql.qrc
 	icons.qrc
@@ -16,5 +18,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif()
 
 target_link_libraries(taiga-resources
-	taiga-config
+	PRIVATE Qt6::Core
+	PUBLIC taiga-config
 )
