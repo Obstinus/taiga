@@ -86,13 +86,22 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/linux-port' || startsWith(github.ref, 'refs/tags/v'))
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          tag="${GITHUB_REF_NAME}"
+          release_options=()
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+            title="$tag"
+            release_options+=(--verify-tag)
+          else
+            tag="linux-build-${GITHUB_RUN_ID}"
+            title="Linux development build ${GITHUB_RUN_NUMBER}"
+            release_options+=(--prerelease --latest=false --target "$GITHUB_SHA")
+          fi
           echo "Publishing release for tag: $tag"
 
           packages=()
@@ -113,7 +122,8 @@ jobs:
           else
             echo "Creating release $tag..."
             gh release create "$tag" "${packages[@]}" \
-              --title "$tag" \
+              --title "$title" \
+              "${release_options[@]}" \
               --generate-notes || {
                 echo "Release creation failed or already exists. Attempting upload..."
                 gh release upload "$tag" "${packages[@]}" --clobber

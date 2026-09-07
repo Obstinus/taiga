@@ -132,6 +132,11 @@ Artifacts are written to `build/packages/`. The Linux workflow in
 `.github/workflows/linux.yml` builds, tests, and publishes both artifacts for each branch update.
 An Arch Linux recipe is available at [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD).
 
+After uploading the workflow artifacts, successful `linux-port` pushes and manual
+builds publish the packages in a GitHub prerelease named `linux-build-<run-id>`,
+tagged at the built commit. Reruns update that release's assets. Version tags
+(`v*`) publish versioned releases; pull requests only upload workflow artifacts.
+
 ## Links
 
 - [Upstream changelog](https://github.com/erengy/taiga/wiki/Changelog)
