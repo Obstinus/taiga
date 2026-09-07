@@ -2,13 +2,7 @@ include(QtSetup)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-add_compile_definitions(
-	TAIGA_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-	TAIGA_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-	TAIGA_VERSION_PATCH=${PROJECT_VERSION_PATCH}
-	TAIGA_VERSION_PRE=""
-	TAIGA_VERSION_BUILD=0
-)
+taiga_add_version_definitions()
 
 add_executable(taiga)
 
