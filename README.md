@@ -18,14 +18,17 @@ this Linux branch.
   against the local catalog.
 - Display the current episode and update progress at 95% of the reported media duration,
   when identification succeeds and synchronization is enabled.
-- Browse and manage the anime list and local library.
+- Browse and edit your anime list, search the service catalog by season, and review
+  history and queued updates.
+- Scan local library folders, launch episodes in the desktop player, and export lists.
 - Configure appearance, title language, library folders, detection interval, player
   exclusions, HTTP proxy, and cache maintenance.
 - Browse and search torrent RSS feeds, filter releases, show SeaDex release coloring,
   and open magnets or downloaded torrent files in the desktop's BitTorrent client.
 - Store AniList access tokens in the Linux desktop keyring.
-- Optionally announce completed episodes through Discord Rich Presence, an HTTP POST endpoint, or
-  a standard IRC connection. These integrations are disabled individually by default.
+- Optionally show the current episode through Discord Rich Presence and announce
+  completed episodes through an HTTP POST endpoint or a standard IRC connection.
+  These integrations are disabled individually by default.
 
 The Windows mIRC DDE protocol is not available on Linux; the Linux port uses a standard IRC
 connection instead. Torrent transfers are handled by an external client, and releases are not
@@ -41,13 +44,23 @@ Build dependencies:
   and DBus. LinguistTools is needed if translations are enabled.
 - Git, including the repository's submodules.
 
-The current development build has been compiled with GCC 16.2.1 and Qt 6.11.2.
-CMake declares Qt 6.8 as its baseline, but compatibility with that older version
-has not been verified.
-
 ```sh
 git clone --branch linux-port --recurse-submodules https://github.com/Obstinus/taiga.git
 cd taiga
+```
+
+CMake requires Qt 6.8 or newer. The [Linux CI workflow](.github/workflows/linux.yml)
+is configured with GCC 14 and Qt 6.8.3 and applies an Anitomy compatibility patch
+for GCC 14. If using that compiler, apply the patch after cloning and before
+configuring:
+
+```sh
+git -C deps/anitomy apply ../../packaging/patches/anitomy-gcc14.patch
+```
+
+Then configure, build, and run:
+
+```sh
 cmake -S . -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DTAIGA_ENABLE_TRANSLATIONS=OFF
@@ -66,10 +79,26 @@ and GUI compilation. Disable this with `-DTAIGA_ENABLE_PCH=OFF` when checking
 header dependencies or using tools that do not support precompiled headers.
 Keep the build directory between builds so Ninja only rebuilds changed files.
 
+## First run
+
+1. Open **Settings → Accounts**, select your service, authenticate, and choose
+   **Synchronize** to load your list and its catalog entries. AniList requires the
+   keyring setup described below.
+2. Add your video directories in **Settings → Library** and scan them from the
+   **Library** menu.
+3. Play an episode and check the Now Playing panel. Enable synchronization to
+   save progress automatically at the 95% completion threshold.
+
 Run Taiga and the player in the same desktop session. The player must expose an
 MPRIS interface; mpv needs an MPRIS integration such as mpv-mpris. Detection also
 needs matching catalog entries in Taiga's database. Automatic progress updates
-require the player to report playback position and duration.
+require the player to report playback position and duration. Browser streaming
+detection depends on the metadata exposed over MPRIS; a recognized provider URL
+alone does not guarantee an identifiable title and episode.
+
+For detection diagnostics, run `./bin/taiga --debug`. See
+[Linux validation and troubleshooting](tests/LINUX.md) for the MPRIS probe and
+remaining desktop acceptance checks.
 
 ## AniList authentication and credential storage
 
@@ -102,15 +131,19 @@ cmake -S . -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DTAIGA_ENABLE_TRANSLATIONS=OFF \
   -DTAIGA_BUILD_MPRIS_PROBE=ON \
-  -DTAIGA_BUILD_TORRENT_TESTS=ON
+  -DTAIGA_BUILD_TORRENT_TESTS=ON \
+  -DTAIGA_BUILD_RECOGNITION_TESTS=ON
 cmake --build build --parallel 4 --target all anitomy-tests
 dbus-run-session -- ./bin/taiga-mpris-probe --self-test
 ctest --test-dir build --output-on-failure
+python3 tests/version_test.py
 bash tests/run_accounts_security_test.sh --keyring
 ```
 
-Torrent tests use temporary files and loopback HTTP servers. Credential tests
-use synthetic tokens, a separate D-Bus session, and temporary keyring storage;
+The recognition suite covers title, season, and episode matching regressions.
+The version tests require Python 3. Torrent tests use temporary files and
+loopback HTTP servers. Credential tests use synthetic tokens, a separate D-Bus
+session, and temporary keyring storage;
 the keyring test also requires `pkg-config` and `gnome-keyring-daemon`.
 Use a separate D-Bus session for isolated tests, but run the application normally
 to access your real player and desktop keyring.
@@ -120,21 +153,32 @@ Additional workflow details: [torrent usage](tests/TORRENTS.md) and
 
 ## Packaging
 
-Linux installs include a desktop entry, the Taiga icon, and AppStream metadata. CPack produces a
-tarball and a Debian package after configuring and building:
+Linux installs include a desktop entry, the Taiga icon, and AppStream metadata.
+For a system installation or package, rebuild with portable mode disabled so
+Taiga writes data under your user account instead of beside the installed binary:
+
+```sh
+cmake -S . -B build -DTAIGA_PORTABLE=OFF
+cmake --build build --parallel 4
+```
+
+Install with `sudo cmake --install build` (default prefix: `/usr/local`), or
+produce a tarball and a Debian package with CPack:
 
 ```sh
 cpack --config build/CPackConfig.cmake -G TGZ
 cpack --config build/CPackConfig.cmake -G DEB
 ```
 
-Artifacts are written to `build/packages/`. The Linux workflow in
-`.github/workflows/linux.yml` builds, tests, and publishes both artifacts for each branch update.
+Artifacts are written to `build/packages/`. These packages require compatible
+Qt and other runtime libraries on the target system. The Linux workflow builds,
+tests, and packages Taiga in both formats for `linux-port` pushes, `v*` tags,
+pull requests, and manual runs; its current configuration keeps portable mode enabled.
 An Arch Linux recipe is available at [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD).
 
 After uploading the workflow artifacts, successful `linux-port` pushes and manual
-builds publish the packages in a GitHub prerelease named `linux-build-<run-id>`,
-tagged at the built commit. Reruns update that release's assets. Version tags
+builds on that branch publish the packages in a GitHub prerelease named
+`linux-build-<run-id>`, tagged at the built commit. Reruns update that release's assets. Version tags
 (`v*`) publish versioned releases; pull requests only upload workflow artifacts.
 
 ## Links
@@ -152,4 +196,4 @@ tagged at the built commit. Reruns update that release's assets. Version tags
 
 ## License
 
-Taiga is licensed under [GNU General Public License v3](https://www.gnu.org/licenses/gpl-3.0.html).
+Taiga is licensed under [GNU General Public License v3 or later](LICENSE).
