@@ -67,12 +67,14 @@ Episode parseFileInfo(const QFileInfo& info, const anitomy::Options options) {
 
   Episode episode = track::recognition::parse(fileName, options);
 
-  if (!episode.contains(anitomy::ElementKind::Title)) {
+  if (!episode.contains(anitomy::ElementKind::Title) ||
+      !episode.contains(anitomy::ElementKind::Season)) {
     const auto parsed = parseParentDirectories(info);
-    if (!parsed.title.empty()) {
+    if (!parsed.title.empty() && !episode.contains(anitomy::ElementKind::Title)) {
       episode.addElement(anitomy::ElementKind::Title, parsed.title);
     }
-    if (!parsed.season.empty() && !episode.contains(anitomy::ElementKind::Season)) {
+    if (!parsed.season.empty() && !episode.contains(anitomy::ElementKind::Season) &&
+        normalize(parsed.title) == normalize(episode.element(anitomy::ElementKind::Title))) {
       episode.addElement(anitomy::ElementKind::Season, parsed.season);
     }
   }
@@ -84,7 +86,15 @@ int identify(Episode& episode) {
   cache()->init();
 
   const auto title = episode.element(anitomy::ElementKind::Title);
-  const auto normalizedTitle = normalize(title);
+  // Anitomy separates S2 / 2nd Season from the title. Restore its numeric
+  // suffix for lookup against normalized catalog titles.
+  const auto season = QString::fromStdString(episode.element(anitomy::ElementKind::Season)).toInt();
+  auto normalizedTitle = normalize(title);
+  if (season > 0) {
+    const auto seasonalTitle = normalize(title + " " + std::to_string(season));
+    // Catalogs commonly omit the season number for the first season only.
+    if (season != 1 || cache()->find(seasonalTitle)) normalizedTitle = seasonalTitle;
+  }
 
   std::vector<Cache::Data::Match> matches;
 

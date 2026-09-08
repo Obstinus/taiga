@@ -27,7 +27,9 @@ option(TAIGA_ENABLE_PCH "Precompile common C++ and Qt headers" ON)
 option(TAIGA_BUILD_MPRIS_PROBE "Build the Linux MPRIS integration probe" OFF)
 option(TAIGA_BUILD_TORRENT_TESTS "Build isolated torrent integration tests" OFF)
 
-if (TAIGA_BUILD_TORRENT_TESTS)
+option(TAIGA_BUILD_RECOGNITION_TESTS "Build isolated recognition regression tests" OFF)
+
+if (TAIGA_BUILD_TORRENT_TESTS OR TAIGA_BUILD_RECOGNITION_TESTS)
 	enable_testing()
 endif()
 

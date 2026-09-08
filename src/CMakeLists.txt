@@ -289,3 +289,21 @@ if (TAIGA_ENABLE_TRANSLATIONS)
 		LUPDATE_OPTIONS -no-obsolete -locations none
 	)
 endif()
+
+if (TAIGA_BUILD_RECOGNITION_TESTS)
+	add_executable(taiga-recognition-test
+		${CMAKE_SOURCE_DIR}/tests/recognition_test.cpp
+		media/anime_db.hpp
+		base/chrono.cpp
+		base/string.cpp
+		track/episode.cpp
+		track/recognition.cpp
+		track/recognition_cache.cpp
+		track/recognition_normalize.cpp
+		track/recognition_path.cpp
+		track/recognition_validate.cpp
+		track/stream.cpp
+	)
+	target_link_libraries(taiga-recognition-test PRIVATE Qt6::Core Qt6::Gui Qt6::Sql taiga-deps)
+	add_test(NAME recognition COMMAND taiga-recognition-test)
+endif()

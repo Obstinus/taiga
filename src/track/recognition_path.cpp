@@ -92,7 +92,9 @@ DirectoryInfo parseDirectory(const QFileInfo& info) {
     // an anime folder.
     if (isLibraryFolder(dir) || name.contains(':')) break;
 
-    if (!isInvalidDirectoryName(name)) return {name, season};
+    if (!isInvalidDirectoryName(name)) {
+      return {name, season.empty() ? findSeasonNumber(name) : season};
+    }
 
     // Record and skip season-only folder (e.g. "Season 2").
     if (season.empty()) season = findSeasonNumber(name);
