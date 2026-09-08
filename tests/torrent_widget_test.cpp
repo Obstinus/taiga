@@ -6,6 +6,8 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QLineEdit>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QTableWidget>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -48,6 +50,29 @@ std::string get_data_path() {
   return dataPath.toStdString();
 }
 }  // namespace taiga
+
+// This transport never calls the base createRequest, so it cannot open sockets.
+class FakeReply final : public QNetworkReply {
+public:
+  FakeReply(const QNetworkRequest& request, QObject* parent) : QNetworkReply(parent) {
+    setRequest(request);
+    setUrl(request.url());
+    open(QIODevice::ReadOnly);
+  }
+  void abort() override { setFinished(true); }
+protected:
+  qint64 readData(char*, qint64) override { return -1; }
+};
+
+class FakeNetwork final : public QNetworkAccessManager {
+public:
+  int requests = 0;
+protected:
+  QNetworkReply* createRequest(Operation, const QNetworkRequest& request, QIODevice*) override {
+    ++requests;
+    return new FakeReply(request, this);
+  }
+};
 
 class UrlReceiver : public QObject {
   Q_OBJECT
@@ -94,10 +119,11 @@ int main(int argc, char** argv) {
        .seeders = 2,
        .leechers = 0},
   };
+  FakeNetwork network;
   UrlReceiver receiver;
   QDesktopServices::setUrlHandler("magnet", &receiver, "open");
   {
-    gui::TorrentsWidget widget(nullptr);
+    gui::TorrentsWidget widget(nullptr, &network);
     widget.resize(1200, 650);
     widget.show();
     app.processEvents();
@@ -189,13 +215,14 @@ int main(int argc, char** argv) {
       check(widget.grab().save(QString::fromLocal8Bit(argv[1])), "save widget screenshot");
   }
   {
-    gui::TorrentsWidget restored(nullptr);
+    gui::TorrentsWidget restored(nullptr, &network);
     restored.findChild<track::TorrentFeedClient*>()->finished(items);
     auto* showArchived = restored.findChild<QCheckBox*>("torrentShowArchived");
     showArchived->setChecked(false);
     check(visibleRows(restored.findChild<QTableWidget*>("torrentTable")) == 2,
           "archive survives widget recreation");
   }
+  check(network.requests == 2, "both widget instances use the isolated SeaDex transport");
   QDesktopServices::unsetUrlHandler("magnet");
   if (!failures) std::puts("Torrent widget tests passed.");
   return failures ? 1 : 0;

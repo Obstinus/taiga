@@ -50,7 +50,11 @@ int main(int argc, char** argv) {
   QTemporaryDir temporary;
   if (!temporary.isValid()) return 1;
   dataPath = temporary.path() + "/data";
-  QDir().mkpath(dataPath);
+  check(QDir().mkpath(dataPath), "create data directory");
+  check(QFile::setPermissions(dataPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+      QFileDevice::ExeOwner | QFileDevice::ReadGroup | QFileDevice::WriteGroup |
+      QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther |
+      QFileDevice::ExeOther), "seed permissive directory");
   const bool keyring = app.arguments().contains("--keyring");
   if (!keyring) qputenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/nonexistent-taiga-test-bus");
   seedLegacy();
@@ -65,9 +69,14 @@ int main(int argc, char** argv) {
   waitFor([&](auto done) { accounts.loadAnilistToken(done); });
   check(accounts.anilistToken() == "test-only-token", "migration preserves session credential");
   check(hasLegacyToken() != keyring, "legacy removed only after verified keyring persistence");
-  const auto permissions = QFile::permissions(dataPath + "/accounts.json");
-  check(!(permissions & (QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ReadOther |
-                         QFileDevice::WriteOther)), "account file is private");
+  const auto modeMask = QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner |
+      QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup |
+      QFileDevice::ReadOther | QFileDevice::WriteOther | QFileDevice::ExeOther;
+  const auto privateFile = QFileDevice::ReadOwner | QFileDevice::WriteOwner;
+  check((QFile::permissions(dataPath + "/accounts.json") & modeMask) == privateFile,
+        "account file mode is 0600");
+  check((QFile::permissions(dataPath) & modeMask) == (privateFile | QFileDevice::ExeOwner),
+        "data directory mode is 0700");
   check(errors == (keyring ? 0 : 1), "storage failure is reported");
   if (keyring) {
     taiga::Accounts reopened;

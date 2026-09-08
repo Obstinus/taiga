@@ -136,12 +136,11 @@ void testMetainfo() {
   check(!track::isTorrentMetainfo(makeTooDeepValue()),
         QStringLiteral("overly deep bencoded value was accepted"));
 
-  QByteArray duplicateKey = 'd' + bencodeString("info") + 'd';
-  duplicateKey += bencodeString("name") + bencodeString("episode.mkv");
-  duplicateKey += bencodeString("name") + bencodeString("episode-copy.mkv");
-  duplicateKey += bencodeString("piece length") + bencodeInteger(16384);
-  duplicateKey += bencodeString("pieces") + bencodeString(QByteArray(20, 'c'));
-  duplicateKey += "ee";
+  auto duplicateKey = makeSingleFileTorrent();
+  const auto name = bencodeString("name") + bencodeString("episode.mkv");
+  check(track::isTorrentMetainfo(duplicateKey),
+        QStringLiteral("duplicate-key control fixture must be valid"));
+  duplicateKey.replace(name, name + bencodeString("name") + bencodeString("episode-copy.mkv"));
   check(!track::isTorrentMetainfo(duplicateKey),
         QStringLiteral("corrupt metainfo with duplicate keys was accepted"));
 }

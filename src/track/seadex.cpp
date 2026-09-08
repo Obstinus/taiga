@@ -165,9 +165,9 @@ SeaDexReleaseStatuses parseSeaDexResponse(const QByteArray& data, QString* error
   return statuses;
 }
 
-SeaDexClient::SeaDexClient(QObject* parent) : QObject{parent} {
-  manager_ = new QNetworkAccessManager{this};
-  manager_->setTransferTimeout(kRequestTimeoutMilliseconds);
+SeaDexClient::SeaDexClient(QObject* parent, QNetworkAccessManager* manager) : QObject{parent} {
+  manager_ = manager ? manager : new QNetworkAccessManager{this};
+  if (!manager) manager_->setTransferTimeout(kRequestTimeoutMilliseconds);
 
   qRegisterMetaType<SeaDexReleaseStatus>();
   qRegisterMetaType<SeaDexReleaseStatuses>();

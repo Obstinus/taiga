@@ -291,8 +291,8 @@ if (TAIGA_ENABLE_TRANSLATIONS)
 endif()
 
 if (TAIGA_BUILD_RECOGNITION_TESTS)
-	add_executable(taiga-recognition-test
-		${CMAKE_SOURCE_DIR}/tests/recognition_test.cpp
+	set(TAIGA_RECOGNITION_TEST_SOURCES
+		${CMAKE_SOURCE_DIR}/tests/recognition_fixture.cpp
 		media/anime_db.hpp
 		base/chrono.cpp
 		base/string.cpp
@@ -304,6 +304,21 @@ if (TAIGA_BUILD_RECOGNITION_TESTS)
 		track/recognition_validate.cpp
 		track/stream.cpp
 	)
+	add_executable(taiga-recognition-test
+		${CMAKE_SOURCE_DIR}/tests/recognition_test.cpp
+		${TAIGA_RECOGNITION_TEST_SOURCES}
+	)
 	target_link_libraries(taiga-recognition-test PRIVATE Qt6::Core Qt6::Gui Qt6::Sql taiga-deps)
 	add_test(NAME recognition COMMAND taiga-recognition-test)
+
+	if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+		add_executable(taiga-media-progress-test
+			${CMAKE_SOURCE_DIR}/tests/media_progress_test.cpp
+			${TAIGA_RECOGNITION_TEST_SOURCES}
+			track/media.cpp
+			track/media.hpp
+		)
+		target_link_libraries(taiga-media-progress-test PRIVATE Qt6::Widgets Qt6::Network Qt6::Sql taiga-deps)
+		add_test(NAME media-progress COMMAND taiga-media-progress-test)
+	endif()
 endif()

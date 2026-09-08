@@ -5,7 +5,7 @@ test_build_dir="$(mktemp -d)"
 trap 'rm -rf -- "$test_build_dir"' EXIT
 qt_libexec="$(pkg-config --variable=libexecdir Qt6Core)"
 "$qt_libexec/moc" "$repo_dir/src/taiga/accounts.hpp" -o "$test_build_dir/moc_accounts.cpp"
-c++ -std=c++23 -fPIC -I"$repo_dir/src" \
+"${CXX:-c++}" -std=c++23 -fPIC -I"$repo_dir/src" \
   "$repo_dir/tests/accounts_security_test.cpp" \
   "$repo_dir/src/taiga/accounts.cpp" "$repo_dir/src/base/settings.cpp" \
   "$repo_dir/src/sync/anilist/anilist_ratings.cpp" \

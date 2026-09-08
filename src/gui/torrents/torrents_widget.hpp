@@ -50,7 +50,7 @@ class TorrentsWidget final : public PageWidget {
   Q_DISABLE_COPY_MOVE(TorrentsWidget)
 
 public:
-  explicit TorrentsWidget(QWidget* parent);
+  explicit TorrentsWidget(QWidget* parent, QNetworkAccessManager* seaDexNetwork = nullptr);
   ~TorrentsWidget() = default;
 
   void search(const QString& query);

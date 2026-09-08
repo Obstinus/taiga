@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install --no-install-recommends -y \
             appstream cmake ninja-build gcc-14 g++-14 pkg-config dbus dpkg-dev \
             desktop-file-utils \
-            libsecret-1-dev
+            libsecret-1-dev libsecret-tools gnome-keyring
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -54,7 +54,8 @@ jobs:
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DTAIGA_ENABLE_TRANSLATIONS=OFF \
             -DTAIGA_BUILD_MPRIS_PROBE=ON \
-            -DTAIGA_BUILD_TORRENT_TESTS=ON
+            -DTAIGA_BUILD_TORRENT_TESTS=ON \
+            -DTAIGA_BUILD_RECOGNITION_TESTS=ON
 
       - name: Build
         # Anitomy is excluded from ALL, but its tests are registered with CTest.
@@ -70,7 +71,8 @@ jobs:
         run: |
           python3 tests/version_test.py
           dbus-run-session -- ./bin/taiga-mpris-probe --self-test
-          ctest --test-dir build --output-on-failure
+          ctest --test-dir build --output-on-failure --no-tests=error
+          CXX=g++-14 bash tests/run_accounts_security_test.sh --keyring
 
       - name: Package
         run: |

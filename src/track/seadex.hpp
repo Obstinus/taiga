@@ -55,7 +55,8 @@ class SeaDexClient final : public QObject {
   Q_DISABLE_COPY_MOVE(SeaDexClient)
 
 public:
-  explicit SeaDexClient(QObject* parent = nullptr);
+  // An injected manager is borrowed and must outlive this client.
+  explicit SeaDexClient(QObject* parent = nullptr, QNetworkAccessManager* manager = nullptr);
   ~SeaDexClient() override;
 
   void fetch(const QStringList& infoHashes);

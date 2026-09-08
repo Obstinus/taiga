@@ -192,10 +192,10 @@ QString seaDexLabel(const track::SeaDexReleaseStatus status) {
 
 namespace gui {
 
-TorrentsWidget::TorrentsWidget(QWidget* parent)
+TorrentsWidget::TorrentsWidget(QWidget* parent, QNetworkAccessManager* seaDexNetwork)
     : PageWidget(parent),
       m_feedClient(new track::TorrentFeedClient(this)),
-      m_seadexClient(new track::SeaDexClient(this)),
+      m_seadexClient(new track::SeaDexClient(this, seaDexNetwork)),
       m_downloader(new track::TorrentDownloader(this)),
       m_refreshTimer(new QTimer(this)),
       m_settings(track::loadTorrentSettings()) {

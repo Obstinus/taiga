@@ -140,7 +140,9 @@ python3 tests/version_test.py
 bash tests/run_accounts_security_test.sh --keyring
 ```
 
-The recognition suite covers title, season, and episode matching regressions.
+The recognition option enables title, season, and episode matching regressions
+and, on Linux, progress-saving tests for the completion threshold, synchronization
+toggle, and duplicate-update prevention.
 The version tests require Python 3. Torrent tests use temporary files and
 loopback HTTP servers. Credential tests use synthetic tokens, a separate D-Bus
 session, and temporary keyring storage;
